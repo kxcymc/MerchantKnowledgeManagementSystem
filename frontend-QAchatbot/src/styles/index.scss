@@ -1,0 +1,155 @@
+@import './reset.scss';
+
+// Main layout
+#root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+// Global animations
+@keyframes slideInFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+}
+
+// Utility classes
+.text-center {
+  text-align: center;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.text-left {
+  text-align: left;
+}
+
+.font-bold {
+  font-weight: $font-weight-bold;
+}
+
+.font-semibold {
+  font-weight: $font-weight-semibold;
+}
+
+.font-medium {
+  font-weight: $font-weight-medium;
+}
+
+.opacity-50 {
+  opacity: 0.5;
+}
+
+.opacity-75 {
+  opacity: 0.75;
+}
+
+.hidden {
+  display: none;
+}
+
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  @include flex-column;
+}
+
+.flex-center {
+  @include flex-center;
+}
+
+.flex-between {
+  @include flex-between;
+}
+
+.gap-sm {
+  gap: $spacing-sm;
+}
+
+.gap-md {
+  gap: $spacing-md;
+}
+
+.gap-lg {
+  gap: $spacing-lg;
+}
+
+.p-sm {
+  padding: $spacing-sm;
+}
+
+.p-md {
+  padding: $spacing-md;
+}
+
+.p-lg {
+  padding: $spacing-lg;
+}
+
+.m-sm {
+  margin: $spacing-sm;
+}
+
+.m-md {
+  margin: $spacing-md;
+}
+
+.m-lg {
+  margin: $spacing-lg;
+}
+
+.rounded {
+  border-radius: $radius-md;
+}
+
+.rounded-lg {
+  border-radius: $radius-lg;
+}
+
+.rounded-full {
+  border-radius: $radius-full;
+}
+
+.shadow-sm {
+  box-shadow: $shadow-sm;
+}
+
+.shadow-md {
+  box-shadow: $shadow-md;
+}
+
+.shadow-lg {
+  box-shadow: $shadow-lg;
+}

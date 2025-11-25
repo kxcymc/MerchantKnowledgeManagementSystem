@@ -1,0 +1,51 @@
+{
+  "name": "douyin-merchant-qa-chatbot",
+  "version": "1.0.0",
+  "type": "module",
+  "author": "陈梓博",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint src --ext ts,tsx --fix",
+    "format": "prettier --write src",
+    "format:check": "prettier --check src",
+    "preview": "vite preview",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "@arco-design/web-react": "^2.60.2",
+    "axios": "^1.6.7",
+    "classnames": "^2.5.1",
+    "clsx": "^2.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.22.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.22",
+    "@typescript-eslint/eslint-plugin": "^7.2.0",
+    "@typescript-eslint/parser": "^7.2.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.6",
+    "husky": "^8.0.0",
+    "lint-staged": "^15.2.2",
+    "prettier": "^3.2.5",
+    "sass": "^1.71.1",
+    "typescript": "^5.2.2",
+    "vite": "^5.2.0"
+  },
+  "lint-staged": {
+    "src/**/*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "src/**/*.{scss,css}": [
+      "prettier --write"
+    ]
+  }
+}
