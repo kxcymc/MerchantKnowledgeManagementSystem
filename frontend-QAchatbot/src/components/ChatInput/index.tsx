@@ -76,10 +76,11 @@ export const ChatInput: React.FC<ChatInputProps> = memo(
     }
 
     const isSendDisabled = !inputValue.trim() && selectedFiles.length === 0;
+    const isScrollablePreview = selectedFiles.length > 6;
 
     return (
       <div className={`${styles.chatInputWrapper} ${minimized ? styles.minimized : 'null'}`}
-        style={selectedFiles.length > 0 ? { height: '200px' } : { height: '150px' }}>
+        style={selectedFiles.length > 0 ? { minHeight: '200px' } : { minHeight: '150px' }}>
         <input
           type="file"
           ref={fileInputRef}
@@ -89,11 +90,12 @@ export const ChatInput: React.FC<ChatInputProps> = memo(
           multiple
         />
 
+        <div className={styles.innerScrollContent}>
         {selectedFiles.length > 0 && (
-          <div className={styles.chatPreview}>
+          <div className={`${styles.chatPreview} ${isScrollablePreview ? styles.scrollablePreview : ''}`}>
             {selectedFiles.map((file, index) => (
               <span key={index} className={styles.previewTag}>
-                {`文件: ${file.name}`}
+                <span className={styles.tagName} title={`文件: ${file.name}`}>{`文件: ${file.name}`}</span>
                 <IconClose
                   className={styles.removeIcon}
                   onClick={() => handleRemoveFile(index)}
@@ -103,15 +105,17 @@ export const ChatInput: React.FC<ChatInputProps> = memo(
           </div>
         )}
 
+        {isScrollablePreview && <div className={styles.previewDivider} />}
+
         <Input.TextArea
           placeholder={selectedFiles.length > 0 && inputValue.trim().length === 0 ? '用抖音商家知识库解读附件内容' : "输入您的问题，支持附件上传"}
           value={inputValue}
           onChange={setInputValue}
           onKeyDown={(e) => handleKeyDown(e, selectedFiles)}
-          autoSize={{ minRows: minimized ? 1 : 3, maxRows: 8 }}
+          autoSize={{ minRows: minimized ? 1 : 3, maxRows: 20 }}
           className={styles.chatInputTextarea}
-          style={{ paddingBottom: '48px' }}
         />
+        </div>
 
         <div className={styles.chatToolbar}>
           <div className={styles.toolbarGroupLeft}>

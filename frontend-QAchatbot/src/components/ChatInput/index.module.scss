@@ -20,7 +20,8 @@ $color-deep-think-hover: #dbeeff;
     border-radius: 24px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
     transition: all 200ms ease-in-out;
-    height: 150px;
+    @include flex(flex-start, space-between);
+    flex-direction: column;
 
     &:hover {
         border-color: $color-gray-300;
@@ -29,8 +30,17 @@ $color-deep-think-hover: #dbeeff;
     &:focus-within {
         border-color: rgba($color-blue-400, 0.5);
     }
+}
 
-    &.minimized {}
+.innerScrollContent {
+    max-width: 100%;
+    max-height: 250px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 .chatInputTextarea {
@@ -43,6 +53,9 @@ $color-deep-think-hover: #dbeeff;
     padding: 12px 16px !important;
     outline: none !important;
     color: $color-gray-700;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    flex-grow: 1;
 
     &::placeholder {
         color: $color-gray-300;
@@ -50,14 +63,10 @@ $color-deep-think-hover: #dbeeff;
 }
 
 .chatToolbar {
-    position: absolute;
-    bottom: 8px;
-    left: 8px;
-    right: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 4px;
+    @include flex(space-between);
+    position: relative;
+    margin: 10px 16px;
+    flex-shrink: 0;
 }
 
 .toolbarGroupLeft,
@@ -128,19 +137,31 @@ $color-deep-think-hover: #dbeeff;
 }
 
 .chatPreview {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    flex: 0 0 auto;
     gap: 8px;
     margin: 8px;
     backdrop-filter: blur(8px);
     border-radius: 12px;
     pointer-events: none;
+
+    &.scrollablePreview {
+        max-height: 100px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        scrollbar-width: thin;
+
+        &::-webkit-scrollbar {
+            width: 6px;
+        }
+    }
 }
 
 .previewTag {
     pointer-events: auto;
-    display: inline-flex;
-    align-items: center;
+    @include flex(space-between);
+    min-width: 0;
     padding: 8px 12px;
     background-color: $color-gray-50;
     border: 1px solid $color-gray-200;
@@ -148,16 +169,23 @@ $color-deep-think-hover: #dbeeff;
     font-size: 13px;
     color: $color-gray-700;
     font-weight: 500;
-    max-width: 100%;
     transition: all 200ms ease;
 
     &:hover {
         border-color: $color-blue-200;
         background-color: $color-deep-think-bg;
     }
+
+    .tagName {
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 }
 
 .removeIcon {
+    flex: 0 0 auto;
     margin-left: 10px;
     cursor: pointer;
     font-size: 16px;
@@ -173,4 +201,13 @@ $color-deep-think-hover: #dbeeff;
         color: $color-gray-700;
         background-color: rgba($color-gray-200, 0.5);
     }
+}
+
+.previewDivider {
+    width: 96%;
+    height: 1px;
+    background-color: $color-gray-100;
+    flex-shrink: 0;
+    margin: 0 auto;
+    margin-bottom: 4px;
 }

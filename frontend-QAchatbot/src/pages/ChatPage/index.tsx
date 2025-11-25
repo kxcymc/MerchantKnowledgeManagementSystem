@@ -5,8 +5,10 @@ import { ChatWindow } from '@/components/ChatWindow';
 import { Message, MessageRole } from '@/types';
 import { MOCK_SESSIONS, INITIAL_MESSAGES, AVATAR_USER } from '@/constants';
 import { Button, Avatar, Dropdown, } from '@arco-design/web-react';
-import { IconMenu, IconPlus, IconSettings } from '@arco-design/web-react/icon';
+import { IconMenu, IconPlus, } from '@arco-design/web-react/icon';
 import styles from './index.module.scss';
+import ToLoginIcon from '@/assets/goToLogin.svg'
+import LogoutIcon from '@/assets/logout.svg'
 
 interface ChatPageProps {
   isLoggedIn: boolean;
@@ -92,11 +94,11 @@ export const ChatPage: React.FC<ChatPageProps> = ({ isLoggedIn, onLogout }) => {
     <div className={styles.menuContainer}>
       {isLoggedIn ?
         (<div key='1' className={styles.menuItem} onClick={onLogout}>
-          <IconSettings className={styles.icon} />退出登录
+          <LogoutIcon />退出登录
         </div>) 
         : 
         (<div key='1' className={styles.menuItem} onClick={() => navigate('/login')}>
-          <IconSettings className={styles.icon} />登录
+          <ToLoginIcon />登录
         </div>)}
 
     </div>

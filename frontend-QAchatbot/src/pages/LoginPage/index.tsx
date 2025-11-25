@@ -107,7 +107,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
       </div>
 
       <div className={styles.footerCopyright}>
-        <p className={styles.copyrightText}>© 前端 2025 字节跳动工程训练营</p>
+        <p className={styles.copyrightText}>© 前端&nbsp;&nbsp;&nbsp;2025字节跳动工程训练营</p>
       </div>
     </div>
   );

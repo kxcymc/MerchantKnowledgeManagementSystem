@@ -112,12 +112,12 @@ $color-red-500: #ef4444;
 /* 1. 外层容器 */
 .menuContainer {
   box-sizing: border-box;
-  min-width: 224px;
+  min-width: 180px;
   background-color: #fff;
   border-radius: 10px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   color: #6B7280;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   height: 40px;
   @include flex;
@@ -125,11 +125,11 @@ $color-red-500: #ef4444;
 
 
 
-/* 2. 通用菜单项 (Menu Item) */
 .menuItem {
-  @include flex;
+  @include flex(flex-start);
   width: 94%;
   height: 30px;
+  padding-left: 14px;
   box-sizing: border-box;
   border: none;
   background: transparent;
@@ -145,24 +145,4 @@ $color-red-500: #ef4444;
 
 .menuItem:hover {
   background-color: rgba(0, 0, 0, 0.05);
-}
-
-/* 图标样式 */
-.menuItem .icon {
-  font-size: 16px;
-  flex-shrink: 0;
-}
-
-/* 文字自适应填充 */
-.menuItem>span:first-of-type {
-  flex: 1;
-}
-
-
-/* 7. 覆盖 Dropdown 默认样式 (如果需要) */
-.dropdownReset {
-  padding: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  border: none !important;
 }

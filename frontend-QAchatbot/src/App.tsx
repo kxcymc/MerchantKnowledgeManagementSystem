@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { BrowserRouter, Routes, Route, } from 'react-router-dom';
 import { LoginPage } from '@/pages/LoginPage';
 import { ChatPage } from '@/pages/ChatPage';
+import '@/styles/index.scss';
 
 const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -15,8 +16,7 @@ const App = () => {
   };
 
   const appStyles = {
-    height: '100vh',
-    overflow: 'hidden',
+    height: '100%',
     backgroundColor: '#f2f3f5',
     fontSize: '14px',
   };
