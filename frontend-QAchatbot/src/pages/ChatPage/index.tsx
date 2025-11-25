@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Sidebar } from '@/components/Sidebar';
 import { ChatWindow } from '@/components/ChatWindow';
 import { Message, MessageRole } from '@/types';
@@ -8,10 +9,11 @@ import { IconMenu, IconPlus, IconSettings } from '@arco-design/web-react/icon';
 import styles from './index.module.scss';
 
 interface ChatPageProps {
+  isLoggedIn: boolean;
   onLogout: () => void;
 }
 
-export const ChatPage: React.FC<ChatPageProps> = ({ onLogout }) => {
+export const ChatPage: React.FC<ChatPageProps> = ({ isLoggedIn, onLogout }) => {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
 
@@ -20,6 +22,8 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onLogout }) => {
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
 
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const navigate = useNavigate();
 
   const handleSessionSelect = (id: string) => {
     setActiveSessionId(id);
@@ -51,7 +55,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onLogout }) => {
       content: messageContent,
       timestamp: Date.now(),
       // 可以在此处存储文件对象或文件元数据
-      files: files, 
+      files: files,
     };
     setMessages((prev) => [...prev, newUserMessage]);
     setTimeout(() => {
@@ -85,11 +89,16 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onLogout }) => {
   };
 
   const dropList = (
-    <div onClick={onLogout} className={styles.menuContainer}>
-      <div key='1'  className={styles.menuItem}>
-        <IconSettings className={styles.icon} />
-        退出登录
-        </div>
+    <div className={styles.menuContainer}>
+      {isLoggedIn ?
+        (<div key='1' className={styles.menuItem} onClick={onLogout}>
+          <IconSettings className={styles.icon} />退出登录
+        </div>) 
+        : 
+        (<div key='1' className={styles.menuItem} onClick={() => navigate('/login')}>
+          <IconSettings className={styles.icon} />登录
+        </div>)}
+
     </div>
   );
 

@@ -20,9 +20,9 @@ $max-width-card: 440px;
   overflow-y: auto;
   padding: 1rem;
 
-  @media (min-width: 768px) {
-    padding: 0;
-  }
+  // @media (min-width: 768px) {
+  //   padding: 0;
+  // }
 }
 
 .dynamicBackground {
@@ -67,7 +67,6 @@ $max-width-card: 440px;
   border-radius: 1.5rem;
   box-shadow: $color-shadow-login-card;
   border: 1px solid white;
-  padding: 2rem;
   transition: all 0.2s ease-in-out;
 
   @media (min-width: 768px) {
@@ -82,20 +81,18 @@ $max-width-card: 440px;
   margin-bottom: 2.5rem;
 
   .logoWrapper {
-    width: 4rem;
-    height: 4rem;
-    background-image: linear-gradient(to bottom right, $color-blue-primary, $color-purple-primary);
-    border-radius: 0.75rem;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.2);
+    box-shadow:
+      0 8px 30px rgba(0, 0, 0, 0.2),
+      3px 3px 10px rgba(255, 0, 0, 0.5),
+      -3px -3px 10px rgba(0, 255, 255, 0.5);
+    border-radius: 12px;
     margin-bottom: 1.25rem;
-    transform: scale(1);
+    transform: scale(2);
     transition: transform 0.3s ease;
 
     &:hover {
-      transform: scale(1.05);
+      transform: scale(2.2);
     }
   }
 
@@ -130,6 +127,7 @@ $max-width-card: 440px;
   }
 
   .inputField {
+
     &.arco-input-size-large,
     :global(.arco-input-password-group).arco-input-size-large {
       height: 3rem !important;

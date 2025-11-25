@@ -1,10 +1,11 @@
 import { useState } from 'react';
+import { BrowserRouter, Routes, Route, } from 'react-router-dom';
 import { LoginPage } from '@/pages/LoginPage';
 import { ChatPage } from '@/pages/ChatPage';
 
 const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-
+  
   const handleLogin = () => {
     setIsLoggedIn(true);
   };
@@ -14,7 +15,6 @@ const App = () => {
   };
 
   const appStyles = {
-    width: '100%',
     height: '100vh',
     overflow: 'hidden',
     backgroundColor: '#f2f3f5',
@@ -23,7 +23,27 @@ const App = () => {
 
   return (
     <div style={appStyles}>
-      {isLoggedIn ? <ChatPage onLogout={handleLogout} /> : <LoginPage onLogin={handleLogin} />}
+      <BrowserRouter>
+        <Routes>
+          <Route 
+            path="/" 
+            element={
+              <ChatPage 
+                isLoggedIn={isLoggedIn} 
+                onLogout={handleLogout} 
+              />
+            } 
+          />
+          <Route 
+            path="/login" 
+            element={
+              <LoginPage 
+                onLogin={handleLogin} 
+              />
+            } 
+          />
+        </Routes>
+      </BrowserRouter>
     </div>
   );
 };
