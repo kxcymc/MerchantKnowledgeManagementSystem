@@ -1,16 +1,22 @@
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 
-// Create axios instance
-const instance: AxiosInstance = axios.create({
-  baseURL: 'http://localhost:3001/api',
+/**
+ * 创建 Axios 实例
+ * 配置了基础URL、超时时间、请求/响应拦截器
+ */
+const request: AxiosInstance = axios.create({
+  baseURL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001/api',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor
-instance.interceptors.request.use(
+/**
+ * 请求拦截器
+ * 添加认证token到请求头
+ */
+request.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('auth_token');
     if (token) {
@@ -23,43 +29,47 @@ instance.interceptors.request.use(
   }
 );
 
-// Response interceptor
-instance.interceptors.response.use(
+/**
+ * 响应拦截器
+ * 处理响应数据和错误
+ */
+request.interceptors.response.use(
   (response) => {
     return response.data;
   },
   (error) => {
+    // 处理401未授权错误
     if (error.response?.status === 401) {
       localStorage.removeItem('auth_token');
       localStorage.removeItem('doubao_user');
-      window.location.href = '/';
+      window.location.href = '/login';
     }
     return Promise.reject(error.response?.data || error.message);
   }
 );
 
-// Generic API methods
+export default request;
+
+// 同步导出一个封装的 apiClient，提供通用的 get/post/put/delete/patch 方法
 export const apiClient = {
-  get: <T = any>(url: string, config?: AxiosRequestConfig) => instance.get<any, T>(url, config),
+  get: <T = any>(url: string, config?: AxiosRequestConfig) => request.get<any, T>(url, config),
 
   post: <T = any>(url: string, data?: any, config?: AxiosRequestConfig) =>
-    instance.post<any, T>(url, data, config),
+    request.post<any, T>(url, data, config),
 
   put: <T = any>(url: string, data?: any, config?: AxiosRequestConfig) =>
-    instance.put<any, T>(url, data, config),
+    request.put<any, T>(url, data, config),
 
   delete: <T = any>(url: string, config?: AxiosRequestConfig) =>
-    instance.delete<any, T>(url, config),
+    request.delete<any, T>(url, config),
 
   patch: <T = any>(url: string, data?: any, config?: AxiosRequestConfig) =>
-    instance.patch<any, T>(url, data, config),
+    request.patch<any, T>(url, data, config),
 
-  // For streaming responses
+  // 流式响应（如果后端支持流）
   stream: (url: string, data?: any, onProgress?: (event: any) => void) =>
-    instance.post(url, data, {
-      responseType: 'stream',
+    request.post(url, data, {
+      responseType: 'stream' as any,
       onDownloadProgress: onProgress,
     }),
 };
-
-export default instance;

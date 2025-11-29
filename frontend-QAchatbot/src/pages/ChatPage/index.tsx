@@ -1,9 +1,9 @@
-import React, { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Sidebar } from '@/components/Sidebar';
 import { ChatWindow } from '@/components/ChatWindow';
-import { Message, MessageRole } from '@/types';
-import { MOCK_SESSIONS, INITIAL_MESSAGES, AVATAR_USER } from '@/constants';
+import { Message, MessageRole, ChatSession } from '@/types';
+import { MOCK_SESSIONS, AVATAR_USER, } from '@/constants';
 import { Button, Avatar, Dropdown, } from '@arco-design/web-react';
 import { IconMenu, IconPlus, } from '@arco-design/web-react/icon';
 import styles from './index.module.scss';
@@ -16,32 +16,45 @@ interface ChatPageProps {
 }
 
 export const ChatPage: React.FC<ChatPageProps> = ({ isLoggedIn, onLogout }) => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  
+  // 从初始mock数据开始，但稍后会从URL或状态中更新
+  const [sessions, setSessions] = useState<ChatSession[]>(MOCK_SESSIONS);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
-
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const navigate = useNavigate();
+  // 从URL参数读取session_id
+  useEffect(() => {
+    const sessionIdFromUrl = searchParams.get('session_id');
+    if (sessionIdFromUrl) {
+      setActiveSessionId(sessionIdFromUrl);
+      // 这里可以从服务器加载该会话的消息
+      // 目前不在此处清空消息（会导致刚创建的本地 optimistic 消息被覆盖）
+      // 后续可以在此处发起请求以加载服务端消息
+    }
+  }, [searchParams]);
 
   const handleSessionSelect = (id: string) => {
     setActiveSessionId(id);
-    setMessages(INITIAL_MESSAGES);
+    // 切换会话时清空当前消息（或从服务端加载对应会话消息）
+    setMessages([]);
+    // 更新URL参数
+    navigate(`?session_id=${id}`);
   };
 
   const handleNewChat = () => {
     setActiveSessionId(null);
     setMessages([]);
+    // 清除URL参数
+    navigate('/');
   };
 
   const handleSendMessage = (content: string, files?: File[]) => {
-    if (!activeSessionId) {
-      setActiveSessionId('new-session');
-    }
-
     let messageContent = content;
     if (files && files.length > 0) {
       if (content.trim()) {
@@ -51,24 +64,59 @@ export const ChatPage: React.FC<ChatPageProps> = ({ isLoggedIn, onLogout }) => {
       }
     }
 
+    // 如果没有活跃的会话，创建新会话
+    let currentSessionId = activeSessionId;
+    
+    if (!currentSessionId) {
+      const newSessionId = `session-${Date.now()}`;
+      const newSession: ChatSession = {
+        id: newSessionId,
+        title: '新对话',
+        updatedAt: Date.now(),
+        createdAt: Date.now(),
+      };
+      // 将新会话添加到会话列表顶部
+      setSessions((prev) => [newSession, ...prev]);
+      currentSessionId = newSessionId;
+      setActiveSessionId(newSessionId);
+      // 更新URL参数
+      navigate(`?session_id=${newSessionId}`);
+    }
+
+    // 创建用户消息
     const newUserMessage: Message = {
-      id: Date.now().toString(),
+      message_id: `msg-${Date.now()}`,
+      session_id: currentSessionId,
       role: MessageRole.User,
       content: messageContent,
       timestamp: Date.now(),
-      // 可以在此处存储文件对象或文件元数据
       files: files,
     };
+    
+    // 立即更新消息（确保用户消息显示）
     setMessages((prev) => [...prev, newUserMessage]);
+
+    // 模拟AI响应
     setTimeout(() => {
       const aiResponse: Message = {
-        id: (Date.now() + 1).toString(),
+        message_id: `msg-${Date.now() + 1}`,
+        session_id: currentSessionId,
         role: MessageRole.Assistant,
         content: `I received your message: "${messageContent}". This is a simulated response.`,
         timestamp: Date.now(),
       };
       setMessages((prev) => [...prev, aiResponse]);
     }, 1000);
+  };
+
+  const handleDeleteSession = (sessionId: string) => {
+    setSessions((prev) => prev.filter((session) => session.id !== sessionId));
+    // 如果删除的是当前活跃的会话，清空消息并返回首页
+    if (activeSessionId === sessionId) {
+      setActiveSessionId(null);
+      setMessages([]);
+      navigate('/');
+    }
   };
 
   const toggleSidebar = () => {
@@ -112,10 +160,11 @@ export const ChatPage: React.FC<ChatPageProps> = ({ isLoggedIn, onLogout }) => {
         className={styles.sidebarWrapper}
       >
         <Sidebar
-          sessions={MOCK_SESSIONS}
+          sessions={sessions}
           activeSessionId={activeSessionId || ''}
           onSessionSelect={handleSessionSelect}
           onNewChat={handleNewChat}
+          onDeleteSession={handleDeleteSession}
           isOpen={isSidebarOpen}
           isHovered={isSidebarHovered}
           toggleOpen={toggleSidebar}

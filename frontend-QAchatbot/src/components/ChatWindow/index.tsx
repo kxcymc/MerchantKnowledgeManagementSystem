@@ -58,7 +58,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ messages, onSendMessage,
       <div className={styles.messagesArea}>
         {messages.map((msg) => (
           <div
-            key={msg.id}
+            key={msg.message_id}
             className={`${styles.messageRow} ${msg.role === MessageRole.User ? styles.messageRowUser : styles.messageRowAssistant
               }`}
           >
@@ -74,6 +74,15 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ messages, onSendMessage,
               )}
 
               <div className={styles.messageBubbleWrapper}>
+                {msg.files && msg.files.length > 0 && (
+                  <div className={styles.messageAttachmentsContainer}>
+                    {msg.files.map((file, idx) => (
+                      <div key={idx} className={styles.attachmentRow} title={file.name}>
+                        <span className={styles.attachmentName}>{file.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div
                   className={`${styles.messageBubble} ${msg.role === MessageRole.User
                       ? styles.messageBubbleUser

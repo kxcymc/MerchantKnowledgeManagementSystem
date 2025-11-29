@@ -1,4 +1,4 @@
-import { Message, ChatSession, User, Attachment } from '../types';
+import { Message, ChatSession, User, Attachment } from '../../types';
 
 // Simulated delays
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -197,8 +197,8 @@ export const mockApi = {
     try {
       // Create and store user message
       const userMsg: Message = {
-        id: 'msg_' + Date.now(),
-        sessionId,
+        message_id: 'msg_' + Date.now(),
+        session_id: sessionId,
         role: 'user',
         content: userMessage,
         attachments: attachments.length > 0 ? attachments : undefined,
@@ -238,8 +238,8 @@ export const mockApi = {
 
       // Store AI response
       const aiMsg: Message = {
-        id: 'msg_' + (Date.now() + 1),
-        sessionId,
+        message_id: 'msg_' + (Date.now() + 1),
+        session_id: sessionId,
         role: 'assistant',
         content: fullResponse,
         timestamp: Date.now(),
