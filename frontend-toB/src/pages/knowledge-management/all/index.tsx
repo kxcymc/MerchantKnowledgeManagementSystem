@@ -63,14 +63,14 @@ export default function KnowledgeAll() {
     const handleDelete = async (id: string, title: string) => {
         const del = async () => {
             try {
-                const res = await fetch(`/api/knowledge/${id}`, { method: 'DELETE' });
-                const json = await res.json();
-                if (json.code === 0) {
-                    Message.success('删除成功');
-                    setData((prev) => prev.filter((i) => i.knowledge_id !== id));
-                } else {
-                    Message.error('删除失败');
-                }
+                // const res = await fetch(`/api/knowledge/${id}`, { method: 'DELETE' });
+                // const json = await res.json();
+                // if (json.code === 0) {
+                //     Message.success('删除成功');
+                //     setData((prev) => prev.filter((i) => i.knowledge_id !== id));
+                // } else {
+                //     Message.error('删除失败');
+                // }
             } catch (err) {
                 Message.error('删除出错');
             }

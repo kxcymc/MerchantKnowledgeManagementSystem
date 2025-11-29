@@ -1,6 +1,4 @@
-import { AuthParams } from '@/utils/authentication';
-
-export type IRoute = AuthParams & {
+export type IRoute =  {
   name: string;
   key: string;
   // 当前页是否展示面包屑
@@ -18,51 +16,24 @@ export const routes: IRoute[] = [
       {
         name: 'menu.knowledgeManagement.all',
         key: 'knowledge-management/all',
-        requiredPermissions: [
-          { resource: 'menu.knowledgeManagement.all', actions: ['read', 'write', 'create', 'delete'] },
-        ],
       },
       {
         name: 'menu.knowledgeManagement.businessGrowth',
         key: 'knowledge-management/business-growth',
-        requiredPermissions: [
-          { resource: 'menu.knowledgeManagement.businessGrowth', actions: ['read', 'write', 'create', 'delete'] },
-        ],
       },
       {
         name: 'menu.knowledgeManagement.onboarding',
         key: 'knowledge-management/merchant-onboarding',
-        requiredPermissions: [
-          { resource: 'menu.knowledgeManagement.onboarding', actions: ['read', 'write', 'create', 'delete'] },
-        ],
-          children: [
-            {
-              name: '入驻与退出',
-              key: 'knowledge-management/merchant-onboarding/entry-exit',
-              breadcrumb: true,
-            },
-            {
-              name: '保证金管理',
-              key: 'knowledge-management/merchant-onboarding/deposit-management',
-              breadcrumb: true,
-            },
-          ],
       },
       {
         name: 'menu.knowledgeManagement.fundSettlement',
         key: 'knowledge-management/fund-settlement',
-        requiredPermissions: [
-          { resource: 'menu.knowledgeManagement.fundSettlement', actions: ['read', 'write', 'create', 'delete'] },
-        ],
       },
     ],
   },
   {
     name: 'menu.knowledgeCreation',
     key: 'knowledge-creation',
-    requiredPermissions: [
-      { resource: 'menu.knowledgeCreation', actions: ['read', 'write', 'create', 'delete'] },
-    ],
   },
   {
     name: 'menu.visualization',
@@ -71,24 +42,10 @@ export const routes: IRoute[] = [
       {
         name: 'menu.visualization.dataAnalysis',
         key: 'visualization/data-analysis',
-        requiredPermissions: [
-          { resource: 'menu.visualization.dataAnalysis', actions: ['read'] },
-        ],
       },
       {
         name: 'menu.visualization.multiDimensionDataAnalysis',
         key: 'visualization/multi-dimension-data-analysis',
-        requiredPermissions: [
-          {
-            resource: 'menu.visualization.dataAnalysis',
-            actions: ['read', 'write'],
-          },
-          {
-            resource: 'menu.visualization.multiDimensionDataAnalysis',
-            actions: ['write'],
-          },
-        ],
-        oneOfPerm: true,
       },
     ],
   },
@@ -112,10 +69,6 @@ export const routes: IRoute[] = [
     name: 'menu.exception',
     key: 'exception',
     children: [
-      {
-        name: 'menu.exception.403',
-        key: 'exception/403',
-      },
       {
         name: 'menu.exception.404',
         key: 'exception/404',

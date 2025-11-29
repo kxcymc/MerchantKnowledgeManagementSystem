@@ -10,7 +10,6 @@ import {
 } from '@arco-design/web-react/icon';
 import Logo from '@/assets/logo.svg';
 import IconButton from './IconButton';
-import Settings from '../Settings';
 import styles from './style/index.module.less';
 import { GlobalContext } from '@/context';
 
@@ -20,11 +19,18 @@ function Navbar({ show }: { show: boolean }) {
   if (!show) {
     return (
       <div className={styles['fixed-settings']}>
-        <Settings
-          trigger={
-            <Button icon={<IconSettings />} type="primary" size="large" />
+        <Tooltip
+          content={
+            theme === 'light'
+              ? '点击切换为暗黑模式'
+              : '点击切换为亮色模式'
           }
-        />
+        >
+          <IconButton
+            icon={theme !== 'dark' ? <IconMoonFill /> : <IconSunFill />}
+            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+          />
+        </Tooltip>
       </div>
     );
   }
