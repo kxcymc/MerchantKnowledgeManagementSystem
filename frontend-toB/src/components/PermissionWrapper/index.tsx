@@ -1,26 +1,14 @@
-import React, { useMemo } from 'react';
-import { GlobalState } from '@/store';
-import { useSelector } from 'react-redux';
-import authentication, { AuthParams } from '@/utils/authentication';
+import React from 'react';
 
-type PermissionWrapperProps = AuthParams & {
+type PermissionWrapperProps = {
   backup?: React.ReactNode;
 };
 
-const PermissionWrapper = (
-  props: React.PropsWithChildren<PermissionWrapperProps>
-) => {
-  const { backup, requiredPermissions, oneOfPerm } = props;
-  const userInfo = useSelector((state: GlobalState) => state.userInfo);
-
-  const hasPermission = useMemo(() => {
-    return authentication(
-        {requiredPermissions, oneOfPerm},
-        userInfo.permissions
-    );
-  },[oneOfPerm, requiredPermissions, userInfo.permissions]);
-
-  if (hasPermission) {
+// Simplified PermissionWrapper: always render children if present,
+// otherwise render backup. Permissions are bypassed so all users see everything.
+const PermissionWrapper = (props: React.PropsWithChildren<PermissionWrapperProps>) => {
+  const { backup } = props;
+  if (props.children) {
     return <>{convertReactElement(props.children)}</>;
   }
   if (backup) {

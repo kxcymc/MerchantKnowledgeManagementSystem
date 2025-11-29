@@ -1,21 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Typography, Table, Button, Tag, Popconfirm, Message } from '@arco-design/web-react';
-import useLocale from '@/utils/useLocale';
-import locale from '../locale';
+import { Card, Typography, Table, Button, Tag, Message, Modal } from '@arco-design/web-react';
+import { knowledgeList, KnowledgeDoc } from '@/constant';
+import { useHistory } from 'react-router-dom';
 
-type Knowledge = {
-    knowledge_id: string;
-    title: string;
-    scene_id: string;
-    type: string;
-    file_size: string;
-    created_at: string;
-    status: string;
-};
+
 
 export default function KnowledgeAll() {
-    const t = useLocale(locale);
-    const [data, setData] = useState<Knowledge[]>([]);
+    const [data, setData] = useState<KnowledgeDoc[]>(knowledgeList);
+    const history = useHistory();
 
     const fetchList = async () => {
         try {
@@ -33,30 +25,48 @@ export default function KnowledgeAll() {
         fetchList();
     }, []);
 
-    const handleDelete = async (id: string) => {
-        try {
-            const res = await fetch(`/api/knowledge/${id}`, { method: 'DELETE' });
-            const json = await res.json();
-            if (json.code === 0) {
-                Message.success('删除成功');
-                setData((prev) => prev.filter((i) => i.knowledge_id !== id));
-            } else {
-                Message.error('删除失败');
+    const handleDelete = async (id: string, title: string) => {
+        const del = async () => {
+            try {
+                const res = await fetch(`/api/knowledge/${id}`, { method: 'DELETE' });
+                const json = await res.json();
+                if (json.code === 0) {
+                    Message.success('删除成功');
+                    setData((prev) => prev.filter((i) => i.knowledge_id !== id));
+                } else {
+                    Message.error('删除失败');
+                }
+            } catch (err) {
+                Message.error('删除出错');
             }
-        } catch (err) {
-            Message.error('删除出错');
         }
+        Modal.confirm({
+            title: '二次确认',
+            content: (
+                <div style={{ textAlign: 'center' }}>
+                    {`确定要删除《${title}》吗？`}
+                </div>
+            ),
+            onOk: del,
+        });
     };
 
     const columns = [
         {
-            title: '标题',
+            title: '文档标题',
             dataIndex: 'title',
             render: (col, row) => <a>{col}</a>,
         },
-        { title: '场景', dataIndex: 'scene_id' },
-        { title: '类型', dataIndex: 'type' },
-        { title: '大小', dataIndex: 'file_size' },
+        { title: '所属业务', dataIndex: 'business' },
+        {
+            title: '所属场景',
+            dataIndex: 'scene',
+            render: (scene) => (
+                <>{scene ? scene : '在该业务下通用'}</>
+            )
+        },
+        { title: '文档类型', dataIndex: 'type' },
+        { title: '文档大小', dataIndex: 'file_size' },
         { title: '创建时间', dataIndex: 'created_at' },
         {
             title: '状态',
@@ -70,13 +80,8 @@ export default function KnowledgeAll() {
             dataIndex: 'op',
             render: (_, row) => (
                 <>
-                    <Button type="text" onClick={() => window.location.pathname = '/knowledge-creation'}>编辑</Button>
-                    <Popconfirm
-                        title="确认删除？"
-                        onOk={() => handleDelete(row.knowledge_id)}
-                    >
-                        <Button type="text" status="danger">删除</Button>
-                    </Popconfirm>
+                    <Button type="text" onClick={() => history.push('/knowledge-creation')}>编辑</Button>
+                    <Button type="text" status="danger" onClick={() => handleDelete(row.knowledge_id, row.title)}>删除</Button>
                 </>
             ),
         },
@@ -88,12 +93,12 @@ export default function KnowledgeAll() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                         <Typography.Title heading={5} style={{ marginTop: 0 }}>
-                            {t['knowledgeManagement.all.title']}
+                            全部
                         </Typography.Title>
-                        <Typography.Paragraph>{t['knowledgeManagement.all.desc']}</Typography.Paragraph>
+                        <Typography.Paragraph>知识文档列表</Typography.Paragraph>
                     </div>
                     <div>
-                        <Button type="primary" onClick={() => (window.location.pathname = '/knowledge-creation')}>新建知识</Button>
+                        <Button type="primary" onClick={() => history.push('/knowledge-creation')}>新建知识</Button>
                     </div>
                 </div>
 

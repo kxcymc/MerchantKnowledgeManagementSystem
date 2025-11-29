@@ -58,7 +58,7 @@ export default function KnowledgeCreation() {
         if (fileList.length === 0) return;
 
         Modal.confirm({
-            title: '确认清空',
+            title: '二次确认',
             content: (
                 <div style={{ textAlign: 'center' }}>
                     确定要清空 {fileList.length} 个已上传的文件吗？

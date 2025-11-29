@@ -6,7 +6,7 @@ import { knowledgeList } from '@/constant';
 const { Row, Col } = Grid;
 
 const Index: React.FC<{ scene: string }> = ({scene}) => {
-  const data = knowledgeList.filter((d) => d.business === '招商入驻' && d.scene === scene);  
+  const data = knowledgeList.filter((d) => d.business === '招商入驻' && d.scene === scene);
   return (
     <div style={{ padding: 24 }}>
       <Row gutter={16}>

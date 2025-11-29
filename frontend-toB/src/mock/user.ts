@@ -47,14 +47,9 @@ if (!isSSR) {
             msg: '密码不能为空',
           };
         }
-        if (userName === 'admin' && password === 'admin') {
-          return {
-            status: 'ok',
-          };
-        }
+        // Accept any non-empty credentials for login (bypass strict check)
         return {
-          status: 'error',
-          msg: '账号或者密码错误',
+          status: 'ok',
         };
       });
     },

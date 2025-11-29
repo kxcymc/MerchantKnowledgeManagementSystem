@@ -1,18 +1,28 @@
 import React from 'react';
-import { Card, Typography } from '@arco-design/web-react';
-import useLocale from '@/utils/useLocale';
-import locale from '../locale';
+import { Grid } from '@arco-design/web-react';
+import KnowledgeCard from '../KnowledgeCard';
+import { knowledgeList } from '@/constant';
+
+const { Row, Col } = Grid;
 
 export default function KnowledgeFundSettlement() {
-    const t = useLocale(locale);
+    const data = knowledgeList.filter((d) => d.business === '资金结算');
     return (
         <div style={{ padding: 24 }}>
-            <Card>
-                <Typography.Title heading={5} style={{ marginTop: 0 }}>
-                    {t['knowledgeManagement.fundSettlement.title']}
-                </Typography.Title>
-                <Typography.Paragraph>{t['knowledgeManagement.fundSettlement.desc']}</Typography.Paragraph>
-            </Card>
+            <Row gutter={16}>
+                {data.map((doc) => (
+                    <Col key={doc.knowledge_id} span={8}>
+                        <KnowledgeCard
+                            id={doc.knowledge_id}
+                            title={doc.title}
+                            type={doc.type}
+                            file_size={doc.file_size}
+                            created_at={doc.created_at}
+                            status={doc.status}
+                        />
+                    </Col>
+                ))}
+            </Row>
         </div>
     );
 }

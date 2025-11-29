@@ -1,5 +1,4 @@
-import auth, { AuthParams } from '@/utils/authentication';
-import { useEffect, useMemo, useState } from 'react';
+import { AuthParams } from '@/utils/authentication';
 
 export type IRoute = AuthParams & {
   name: string;
@@ -12,13 +11,6 @@ export type IRoute = AuthParams & {
 };
 
 export const routes: IRoute[] = [
-  {
-    name: 'menu.knowledgeCreation',
-    key: 'knowledge-creation',
-    requiredPermissions: [
-      { resource: 'menu.knowledgeCreation', actions: ['read', 'write', 'create', 'delete'] },
-    ],
-  },
   {
     name: 'menu.knowledgeManagement',
     key: 'knowledge-management',
@@ -43,6 +35,18 @@ export const routes: IRoute[] = [
         requiredPermissions: [
           { resource: 'menu.knowledgeManagement.onboarding', actions: ['read', 'write', 'create', 'delete'] },
         ],
+          children: [
+            {
+              name: '入驻与退出',
+              key: 'knowledge-management/merchant-onboarding/entry-exit',
+              breadcrumb: true,
+            },
+            {
+              name: '保证金管理',
+              key: 'knowledge-management/merchant-onboarding/deposit-management',
+              breadcrumb: true,
+            },
+          ],
       },
       {
         name: 'menu.knowledgeManagement.fundSettlement',
@@ -51,6 +55,13 @@ export const routes: IRoute[] = [
           { resource: 'menu.knowledgeManagement.fundSettlement', actions: ['read', 'write', 'create', 'delete'] },
         ],
       },
+    ],
+  },
+  {
+    name: 'menu.knowledgeCreation',
+    key: 'knowledge-creation',
+    requiredPermissions: [
+      { resource: 'menu.knowledgeCreation', actions: ['read', 'write', 'create', 'delete'] },
     ],
   },
   {
@@ -224,9 +235,7 @@ export const generatePermission = (role: string) => {
       // top-level route without children
       if (typeof item.name === 'string' && (item.name.indexOf('menu.knowledgeManagement') === 0 || item.name === 'menu.knowledgeCreation')) {
         result[item.name] = ['read', 'write', 'create', 'delete'];
-      } else if (item.name === 'menu.chatbot') {
-        result[item.name] = ['read'];
-      } else {
+      }  else {
         // top-level other routes have no children; default to actions
         result[item.name] = actions;
       }
@@ -235,52 +244,6 @@ export const generatePermission = (role: string) => {
   return result;
 };
 
-const useRoute = (userPermission): [IRoute[], string] => {
-  const filterRoute = (routes: IRoute[], arr = []): IRoute[] => {
-    if (!routes.length) {
-      return [];
-    }
-    for (const route of routes) {
-      const { requiredPermissions, oneOfPerm } = route;
-      let visible = true;
-      if (requiredPermissions) {
-        visible = auth({ requiredPermissions, oneOfPerm }, userPermission);
-      }
-
-      if (!visible) {
-        continue;
-      }
-      if (route.children && route.children.length) {
-        const newRoute = { ...route, children: [] };
-        filterRoute(route.children, newRoute.children);
-        if (newRoute.children.length) {
-          arr.push(newRoute);
-        }
-      } else {
-        arr.push({ ...route });
-      }
-    }
-
-    return arr;
-  };
-
-  const [permissionRoute, setPermissionRoute] = useState(routes);
-
-  useEffect(() => {
-    const newRoutes = filterRoute(routes);
-    setPermissionRoute(newRoutes);
-  }, [JSON.stringify(userPermission)]);
-
-  const defaultRoute = useMemo(() => {
-    const first = permissionRoute[0];
-    if (first) {
-      const firstRoute = first?.children?.[0]?.key || first.key;
-      return firstRoute;
-    }
-    return '';
-  }, [permissionRoute]);
-
-  return [permissionRoute, defaultRoute];
-};
+const useRoute = (): [IRoute[], string] => [routes, routes[0].key];
 
 export default useRoute;

@@ -35,6 +35,12 @@ export default function LoginForm() {
     }
     // 记录登录状态
     localStorage.setItem('userStatus', 'login');
+    // 将用户角色设为 admin，确保拥有最高权限
+    try {
+      localStorage.setItem('userRole', 'admin');
+    } catch (e) {
+      // ignore
+    }
     // 跳转首页
     window.location.href = '/';
   }
