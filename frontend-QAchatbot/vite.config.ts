@@ -24,7 +24,7 @@ export default defineConfig({
     devSourcemap: true,
   },
   server: {
-    port: 3000,
+    port: 5555,
     strictPort: false,
     open: true,
   },
