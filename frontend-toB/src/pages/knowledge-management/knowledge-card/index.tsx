@@ -53,7 +53,7 @@ const Index: React.FC = () => {
                     />
                     <Space>
                         <Button type="primary" icon={<IconPlus />} onClick={() => history.push('/knowledge-creation')}>
-                            {`从“${businessName||''}”新建文档`}
+                            {sceneName ? `从“${sceneName||''}”新建文档` : `从“${businessName||''}”新建文档`}
                         </Button>
                     </Space>
                 </div>
