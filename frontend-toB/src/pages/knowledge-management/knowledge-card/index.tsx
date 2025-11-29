@@ -1,17 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { Grid, Tabs, Card, Input } from '@arco-design/web-react';
+import { Grid, Card, Input,Space, Button } from '@arco-design/web-react';
+import { IconPlus } from '@arco-design/web-react/icon';
 import KnowledgeCard from './KnowledgeCard';
 import { knowledgeList } from '@/constant';
 import styles from './style/index.module.less';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useHistory } from 'react-router-dom';
 import { RouteMap } from '@/constant';
 
 
 const { Row, Col } = Grid;
-const { TabPane } = Tabs;
 
 const Index: React.FC = () => {
-    const [activeTab, setActiveTab] = useState('all');
+    const history = useHistory();
     const { pathname } = useLocation();
     const [businessName, setBusinessName] = useState('')
     const [sceneName, setSceneName] = useState('')
@@ -29,39 +29,35 @@ const Index: React.FC = () => {
             default:
                 break;
         }
-    }, [pathname])    
+    }, [pathname])
 
-    useEffect(()=>{
+    useEffect(() => {
         setFileList(knowledgeList.filter((d) => {
-            if (sceneName && businessName){
+            if (sceneName && businessName) {
                 return d.business === businessName && d.scene === sceneName
             }
-            if(businessName && !sceneName){
+            if (businessName && !sceneName) {
                 return d.business === businessName
             }
         }))
-    },[businessName,sceneName])
-    
+    }, [businessName, sceneName])
+
 
     return (
         <div className={styles.container} style={{ padding: 24 }}>
             <Card bordered={false}>
-                <Tabs
-                    activeTab={activeTab}
-                    type="rounded"
-                    onChange={setActiveTab}
-                    extra={
-                        <Input.Search
-                            style={{ width: 240 }}
-                            placeholder="搜索"
-                        />
-                    }
-                >
-                    <TabPane key="all" title="全部" />
-                    <TabPane key="quality" title="内容质检" />
-                    <TabPane key="service" title="服务开通" />
-                    <TabPane key="rules" title="规则预置" />
-                </Tabs>
+                <div className={styles.tabBar}>
+                    <Input.Search
+                        className={styles.searchBar}
+                        placeholder='输入文档名称'
+                    />
+                    <Space>
+                        <Button type="primary" icon={<IconPlus />} onClick={() => history.push('/knowledge-creation')}>
+                            {`从“${businessName||''}”新建文档`}
+                        </Button>
+                    </Space>
+                </div>
+
                 <div style={{ marginTop: 20 }}>
                     <Row gutter={24} className={styles['card-content']}>
                         {fileList.map((doc) => (

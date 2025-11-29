@@ -65,23 +65,6 @@ export const routes: IRoute[] = [
     ],
   },
   {
-    name: 'menu.dashboard',
-    key: 'dashboard',
-    children: [
-      {
-        name: 'menu.dashboard.workplace',
-        key: 'dashboard/workplace',
-      },
-      {
-        name: 'menu.dashboard.monitor',
-        key: 'dashboard/monitor',
-        requiredPermissions: [
-          { resource: 'menu.dashboard.monitor', actions: ['write'] },
-        ],
-      },
-    ],
-  },
-  {
     name: 'menu.visualization',
     key: 'visualization',
     children: [
@@ -109,51 +92,6 @@ export const routes: IRoute[] = [
       },
     ],
   },
-  {
-    name: 'menu.list',
-    key: 'list',
-    children: [
-      {
-        name: 'menu.list.searchTable',
-        key: 'list/search-table',
-      },
-      {
-        name: 'menu.list.cardList',
-        key: 'list/card',
-      },
-    ],
-  },
-  {
-    name: 'menu.form',
-    key: 'form',
-    children: [
-      {
-        name: 'menu.form.group',
-        key: 'form/group',
-        requiredPermissions: [
-          { resource: 'menu.form.group', actions: ['read', 'write'] },
-        ],
-      },
-      {
-        name: 'menu.form.step',
-        key: 'form/step',
-        requiredPermissions: [
-          { resource: 'menu.form.step', actions: ['read'] },
-        ],
-      },
-    ],
-  },
-  {
-    name: 'menu.profile',
-    key: 'profile',
-    children: [
-      {
-        name: 'menu.profile.basic',
-        key: 'profile/basic',
-      },
-    ],
-  },
-
   {
     name: 'menu.result',
     key: 'result',
@@ -188,20 +126,6 @@ export const routes: IRoute[] = [
       },
     ],
   },
-  {
-    name: 'menu.user',
-    key: 'user',
-    children: [
-      {
-        name: 'menu.user.info',
-        key: 'user/info',
-      },
-      {
-        name: 'menu.user.setting',
-        key: 'user/setting',
-      },
-    ],
-  },
 ];
 
 export const getName = (path: string, routes) => {
@@ -213,35 +137,6 @@ export const getName = (path: string, routes) => {
       return getName(path, item.children);
     }
   });
-};
-
-export const generatePermission = (role: string) => {
-  const actions = role === 'admin' ? ['*'] : ['read'];
-  const result = {};
-  routes.forEach((item) => {
-    if (item.children) {
-      item.children.forEach((child) => {
-        // special-case our new knowledge routes to grant full CRUD for all roles
-        if (typeof child.name === 'string' && (child.name.indexOf('menu.knowledgeManagement') === 0 || child.name === 'menu.knowledgeCreation')) {
-          result[child.name] = ['read', 'write', 'create', 'delete'];
-        } else if (child.name === 'menu.chatbot') {
-          // chatbot does not involve file CRUD
-          result[child.name] = ['read'];
-        } else {
-          result[child.name] = actions;
-        }
-      });
-    } else {
-      // top-level route without children
-      if (typeof item.name === 'string' && (item.name.indexOf('menu.knowledgeManagement') === 0 || item.name === 'menu.knowledgeCreation')) {
-        result[item.name] = ['read', 'write', 'create', 'delete'];
-      }  else {
-        // top-level other routes have no children; default to actions
-        result[item.name] = actions;
-      }
-    }
-  });
-  return result;
 };
 
 const useRoute = (): [IRoute[], string] => [routes, routes[0].key];

@@ -1,6 +1,3 @@
-// Below is a corrected version of your PageLayout component with route.props passed to child components.
-// Focused only on the rendering part where <Route> is created.
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Switch, Route, Redirect, useHistory } from 'react-router-dom';
 import { Layout, Menu, Breadcrumb, Spin } from '@arco-design/web-react';
