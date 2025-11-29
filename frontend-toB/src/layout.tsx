@@ -18,7 +18,6 @@ import Navbar from './components/NavBar';
 import Footer from './components/Footer';
 import useRoute from '@/routes';
 import { isArray } from './utils/is';
-import useLocale from './utils/useLocale';
 import getUrlParams from './utils/getUrlParams';
 import lazyload from './utils/lazyload';
 import { GlobalState } from './store';
@@ -87,7 +86,6 @@ function PageLayout() {
   const history = useHistory();
   const pathname = history.location.pathname;
   const currentComponent = qs.parseUrl(pathname).url.slice(1);
-  const locale = useLocale();
   const { settings, userLoading, } = useSelector(
     (state: GlobalState) => state
   );
@@ -133,7 +131,7 @@ function PageLayout() {
   const paddingTop = showNavbar ? { paddingTop: navbarHeight } : {};
   const paddingStyle = { ...paddingLeft, ...paddingTop };
 
-  function renderRoutes(locale) {
+  function renderRoutes() {
     routeMap.current.clear();
     return function travel(_routes, level, parentNode = []) {
       return _routes.map((route) => {
@@ -141,7 +139,7 @@ function PageLayout() {
         const iconDom = getIconFromKey(route.key);
         const titleDom = (
           <>
-            {iconDom} {locale[route.name] || route.name}
+            {iconDom} {route.name}
           </>
         );
 
@@ -235,7 +233,7 @@ function PageLayout() {
                   openKeys={openKeys}
                   onClickSubMenu={(_, openKeys) => setOpenKeys(openKeys)}
                 >
-                  {renderRoutes(locale)(routes, 1)}
+                  {renderRoutes()(routes, 1)}
                 </Menu>
               </div>
               <div className={styles['collapse-btn']} onClick={toggleCollapse}>
@@ -251,7 +249,7 @@ function PageLayout() {
                   <Breadcrumb>
                     {breadcrumb.map((node, index) => (
                       <Breadcrumb.Item key={index}>
-                        {typeof node === 'string' ? locale[node] || node : node}
+                        {node}
                       </Breadcrumb.Item>
                     ))}
                   </Breadcrumb>

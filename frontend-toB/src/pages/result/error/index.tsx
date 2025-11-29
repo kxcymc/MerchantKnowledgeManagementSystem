@@ -1,46 +1,42 @@
 import React from 'react';
 import { Typography, Result, Button, Link } from '@arco-design/web-react';
 import { IconLink } from '@arco-design/web-react/icon';
-import useLocale from '@/utils/useLocale';
-import locale from './locale';
 import styles from './style/index.module.less';
 
 function Success() {
-  const t = useLocale(locale);
-
   return (
     <div>
       <div className={styles.wrapper}>
         <Result
           className={styles.result}
           status="error"
-          title={t['error.result.title']}
-          subTitle={t['error.result.subTitle']}
+          title="提交失败"
+          subTitle="请核对修改信息后，再重试"
           extra={[
             <Button key="again" type="secondary" style={{ marginRight: 16 }}>
-              {t['error.result.goBack']}
+              回到首页
             </Button>,
             <Button key="back" type="primary">
-              {t['error.result.retry']}
+              返回修改
             </Button>,
           ]}
         />
         <div className={styles['details-wrapper']}>
           <Typography.Title heading={6} style={{ marginTop: 0 }}>
-            {t['error.detailTitle']}
+            错误详情
           </Typography.Title>
           <Typography.Paragraph style={{ marginBottom: 0 }}>
             <ol>
               <li>
-                {t['error.detailLine.record']}
+                当前域名未备案，备案流程请查看：
                 <Link>
                   <IconLink />
-                  {t['error.detailLine.record.link']}
+                  备案流程
                 </Link>
               </li>
               <li>
-                {t['error.detailLine.auth']}
-                <Link>{t['error.detailLine.auth.link']}</Link>
+                你的用户组不具有进行此操作的权限；
+                <Link>申请权限</Link>
               </li>
             </ol>
           </Typography.Paragraph>

@@ -1,96 +1,95 @@
-export type IRoute =  {
+export type IRoute = {
   name: string;
   key: string;
-  // 当前页是否展示面包屑
   breadcrumb?: boolean;
   children?: IRoute[];
-  // 当前路由是否渲染菜单项，为 true 的话不会在菜单中显示，但可通过路由地址访问。
   ignore?: boolean;
 };
 
 export const routes: IRoute[] = [
   {
-    name: 'menu.knowledgeManagement',
+    name: '知识管理',
     key: 'knowledge-management',
     children: [
       {
-        name: 'menu.knowledgeManagement.all',
+        name: '全部',
         key: 'knowledge-management/all',
       },
       {
-        name: 'menu.knowledgeManagement.businessGrowth',
+        name: '经营成长',
         key: 'knowledge-management/business-growth',
       },
       {
-        name: 'menu.knowledgeManagement.onboarding',
+        name: '招商入驻',
         key: 'knowledge-management/merchant-onboarding',
+        children: [
+          {
+            name: '入驻与退出',
+            key: 'knowledge-management/merchant-onboarding/entry-exit',
+            breadcrumb: true,
+          },
+          {
+            name: '保证金管理',
+            key: 'knowledge-management/merchant-onboarding/deposit-management',
+            breadcrumb: true,
+          },
+        ],
       },
       {
-        name: 'menu.knowledgeManagement.fundSettlement',
+        name: '资金结算',
         key: 'knowledge-management/fund-settlement',
       },
     ],
   },
   {
-    name: 'menu.knowledgeCreation',
+    name: '知识创建',
     key: 'knowledge-creation',
   },
   {
-    name: 'menu.visualization',
+    name: '数据可视化',
     key: 'visualization',
     children: [
       {
-        name: 'menu.visualization.dataAnalysis',
+        name: '分析页',
         key: 'visualization/data-analysis',
       },
       {
-        name: 'menu.visualization.multiDimensionDataAnalysis',
+        name: '多维数据分析',
         key: 'visualization/multi-dimension-data-analysis',
       },
     ],
   },
   {
-    name: 'menu.result',
+    name: '结果页',
     key: 'result',
     children: [
       {
-        name: 'menu.result.success',
+        name: '成功页',
         key: 'result/success',
         breadcrumb: false,
       },
       {
-        name: 'menu.result.error',
+        name: '失败页',
         key: 'result/error',
         breadcrumb: false,
       },
     ],
   },
   {
-    name: 'menu.exception',
+    name: '异常页',
     key: 'exception',
     children: [
       {
-        name: 'menu.exception.404',
+        name: '404',
         key: 'exception/404',
       },
       {
-        name: 'menu.exception.500',
+        name: '500',
         key: 'exception/500',
       },
     ],
   },
 ];
-
-export const getName = (path: string, routes) => {
-  return routes.find((item) => {
-    const itemPath = `/${item.key}`;
-    if (path === itemPath) {
-      return item.name;
-    } else if (item.children) {
-      return getName(path, item.children);
-    }
-  });
-};
 
 const useRoute = (): [IRoute[], string] => [routes, routes[0].key];
 
