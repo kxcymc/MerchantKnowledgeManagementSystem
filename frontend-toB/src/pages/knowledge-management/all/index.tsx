@@ -1,29 +1,64 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Typography, Table, Button, Tag, Message, Modal } from '@arco-design/web-react';
+import {
+    Card,
+    Typography,
+    Table,
+    Button,
+    Tag,
+    Message,
+    Modal,
+    PaginationProps,
+    Space
+} from '@arco-design/web-react';
+import { IconPlus } from '@arco-design/web-react/icon';
 import { knowledgeList, KnowledgeDoc } from '@/constant';
 import { useHistory } from 'react-router-dom';
+import SearchForm from './form';
+import styles from './style/index.module.less';
 
-
+const { Title } = Typography;
 
 export default function KnowledgeAll() {
     const [data, setData] = useState<KnowledgeDoc[]>(knowledgeList);
+    const [loading, setLoading] = useState(true);
+    const [pagination, setPagination] = useState<PaginationProps>({
+        sizeCanChange: true,
+        showTotal: true,
+        pageSize: 10,
+        current: 1,
+        pageSizeChangeResetCurrent: true,
+    });
+    const [formParams, setFormParams] = useState({});
     const history = useHistory();
 
     const fetchList = async () => {
+        setLoading(true);
         try {
-            const res = await fetch('/api/knowledge');
+            const { current, pageSize } = pagination;
+            const query = new URLSearchParams({
+                page: String(current),
+                pageSize: String(pageSize),
+                ...formParams
+            }).toString();
+
+            const res = await fetch(`/api/knowledge?${query}`);
             const json = await res.json();
             if (json && json.data) {
                 setData(json.data);
+                if (json.total) {
+                    setPagination((prev) => ({ ...prev, total: json.total }));
+                }
             }
         } catch (err) {
             console.error(err);
+        } finally {
+            setLoading(false);
         }
     };
 
     useEffect(() => {
         fetchList();
-    }, []);
+    }, [pagination.current, pagination.pageSize, JSON.stringify(formParams)]);
 
     const handleDelete = async (id: string, title: string) => {
         const del = async () => {
@@ -51,11 +86,20 @@ export default function KnowledgeAll() {
         });
     };
 
+    function onChangeTable(pagination) {
+        setPagination(pagination);
+    }
+
+    function handleSearch(params) {        
+        setPagination({ ...pagination, current: 1 });
+        setFormParams(params);
+    }
+
     const columns = [
         {
             title: '文档标题',
             dataIndex: 'title',
-            render: (col, row) => <a>{col}</a>,
+            render: (col) => <Typography.Text copyable>{col}</Typography.Text>,
         },
         { title: '所属业务', dataIndex: 'business' },
         {
@@ -66,8 +110,29 @@ export default function KnowledgeAll() {
             )
         },
         { title: '文档类型', dataIndex: 'type' },
-        { title: '文档大小', dataIndex: 'file_size' },
-        { title: '创建时间', dataIndex: 'created_at' },
+        {
+            title: '文档大小',
+            dataIndex: 'file_size',
+            sorter: (a, b) => {
+                const toBytes = (sizeStr) => {
+                    const match = sizeStr.toString().trim().match(/^([\d.]+)\s*([a-zA-Z]+)$/);
+                    if (!match) return parseFloat(sizeStr) || 0;
+
+                    const num = parseFloat(match[1]);
+                    const unit = match[2].toLowerCase();
+
+                    const units = { b: 1, kb: 1024, mb: 1024 ** 2, gb: 1024 ** 3, tb: 1024 ** 4 };
+                    return num * (units[unit] || 1);
+                };
+
+                return toBytes(a.file_size) - toBytes(b.file_size);
+            }
+        },
+        {
+            title: '创建时间',
+            dataIndex: 'created_at',
+            sorter: (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+        },
         {
             title: '状态',
             dataIndex: 'status',
@@ -88,27 +153,24 @@ export default function KnowledgeAll() {
     ];
 
     return (
-        <div style={{ padding: 24 }}>
-            <Card>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                        <Typography.Title heading={5} style={{ marginTop: 0 }}>
-                            全部
-                        </Typography.Title>
-                        <Typography.Paragraph>知识文档列表</Typography.Paragraph>
-                    </div>
-                    <div>
-                        <Button type="primary" onClick={() => history.push('/knowledge-creation')}>新建知识</Button>
-                    </div>
-                </div>
-
-                <Table
-                    style={{ marginTop: 16 }}
-                    rowKey="knowledge_id"
-                    data={data}
-                    columns={columns}
-                />
-            </Card>
-        </div>
+        <Card>
+            <Title heading={6}>全部知识文档</Title>
+            <SearchForm onSearch={handleSearch} />
+            <div className={styles['button-group']}>
+                <Space>
+                    <Button type="primary" icon={<IconPlus />} onClick={() => history.push('/knowledge-creation')}>
+                        新建知识
+                    </Button>
+                </Space>
+            </div>
+            <Table
+                rowKey="knowledge_id"
+                loading={loading}
+                onChange={onChangeTable}
+                pagination={pagination}
+                data={data}
+                columns={columns}
+            />
+        </Card>
     );
 }

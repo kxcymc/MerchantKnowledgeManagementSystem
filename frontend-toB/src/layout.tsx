@@ -78,13 +78,11 @@ function getFlattenRoutes(routes) {
       if (route.key && (!route.children || !visibleChildren.length)) {
         try {
           if (
-            /entry-exit|deposit-management/.test(route.key)
+            /merchant-onboarding|fund-settlement|business-growth/.test(route.key)
           ) {
-            const scene = route.key.slice(route.key.lastIndexOf('/') + 1);
             route.component = lazyload(
-              mod[`./pages/knowledge-management/merchant-onboarding/index.tsx`]
+              mod[`./pages/knowledge-management/knowledge-card/index.tsx`]
             );
-            route.props = (scene === 'entry-exit' ? '入驻与退出':'保证金管理');
           } else {
             route.component = lazyload(mod[`./pages/${route.key}/index.tsx`]);
           }

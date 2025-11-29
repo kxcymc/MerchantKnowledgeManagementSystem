@@ -1,3 +1,14 @@
+export const RouteMap = {
+  '/knowledge-management': '知识管理',
+  '/knowledge-management/all': '全部',
+  '/knowledge-management/business-growth': '经营成长',
+  '/knowledge-management/merchant-onboarding': '招商入驻',
+  '/knowledge-management/merchant-onboarding/entry-exit': '入驻与退出',
+  '/knowledge-management/merchant-onboarding/deposit-management': '保证金管理',
+  '/knowledge-management/fund-settlement': '资金结算',
+  '/knowledge-creation': '知识创建'
+};
+
 export type KnowledgeDoc = {
     knowledge_id: string;
     business: '经营成长' | '招商入驻' | '资金结算';
