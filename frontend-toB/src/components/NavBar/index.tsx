@@ -1,12 +1,10 @@
 import React, { useContext } from 'react';
 import {
   Tooltip,
-  Button,
 } from '@arco-design/web-react';
 import {
   IconSunFill,
   IconMoonFill,
-  IconSettings,
 } from '@arco-design/web-react/icon';
 import Logo from '@/assets/logo.svg';
 import IconButton from './IconButton';

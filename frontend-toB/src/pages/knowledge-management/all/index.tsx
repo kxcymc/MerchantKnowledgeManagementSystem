@@ -16,8 +16,6 @@ import { useHistory } from 'react-router-dom';
 import SearchForm from './form';
 import styles from './style/index.module.less';
 
-const { Title } = Typography;
-
 export default function KnowledgeAll() {
     const [data, setData] = useState<KnowledgeDoc[]>(knowledgeList);
     const [loading, setLoading] = useState(true);
@@ -90,9 +88,21 @@ export default function KnowledgeAll() {
         setPagination(pagination);
     }
 
-    function handleSearch(params) {        
+    function handleSearch(params) {
         setPagination({ ...pagination, current: 1 });
         setFormParams(params);
+    }
+
+    function previewKnowledge(id: number, type: string) {
+        if (type === 'PDF') {
+            console.log('不跳');
+        } else {
+            history.push(`/knowledge-management/RichTextPreview?knowledge_id=${id.toString()}`)
+        }
+    }
+
+    const goEditPage = (id: number, title: string) => {
+        history.push(`/knowledge-management/edit?knowledge_id=${id.toString()}&title=${title}`)
     }
 
     const columns = [
@@ -145,7 +155,8 @@ export default function KnowledgeAll() {
             dataIndex: 'op',
             render: (_, row) => (
                 <>
-                    <Button type="text" onClick={() => history.push('/knowledge-creation')}>编辑</Button>
+                    <Button type='secondary' onClick={() => previewKnowledge(row.knowledge_id, row.type)}>预览</Button>
+                    <Button type="text" onClick={() => goEditPage(row.knowledge_id, row.title)}>编辑</Button>
                     <Button type="text" status="danger" onClick={() => handleDelete(row.knowledge_id, row.title)}>删除</Button>
                 </>
             ),
@@ -154,7 +165,6 @@ export default function KnowledgeAll() {
 
     return (
         <Card>
-            <Title heading={6}>全部知识文档</Title>
             <SearchForm onSearch={handleSearch} />
             <div className={styles['button-group']}>
                 <Space>

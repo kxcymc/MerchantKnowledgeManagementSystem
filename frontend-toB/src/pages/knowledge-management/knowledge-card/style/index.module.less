@@ -10,7 +10,7 @@
 
 .card-block {
   margin-bottom: 16px;
-  background-color: #fff;
+  background-color: var(--color-bg-2);
   border-radius: 4px;
   transition: all 0.2s;
 
@@ -36,8 +36,7 @@
       flex-shrink: 0;
       height: 24px;
       width: 24px;
-      color: #fff;
-      background: #165dff;
+      color: var(--color-text-1);
       text-align: center;
       line-height: 24px;
       border-radius: 50%;
@@ -50,7 +49,6 @@
   }
 
   .content {
-    margin-top: 16px;
     height: 80px;
 
     :global(.arco-descriptions-item-label),
@@ -78,7 +76,7 @@
 }
 
 .card-block:hover {
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 10%);
+  box-shadow: 0 4px 10px rgba(var(--color-bg-5-rgb), 0.1);
   transform: translateY(-2px);
 }
 
@@ -88,7 +86,6 @@
   align-items: center;
 
   .searchBar {
-
     width: 240px;
 
     :global(.arco-input-inner-wrapper) {

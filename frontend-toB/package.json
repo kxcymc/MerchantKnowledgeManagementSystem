@@ -20,6 +20,7 @@
     "@arco-themes/react-arco-pro": "^0.0.7",
     "@loadable/component": "^5.13.2",
     "@turf/turf": "^6.5.0",
+    "@types/slate": "^0.47.16",
     "arco-design-pro": "^2.8.1",
     "axios": "^0.24.0",
     "bizcharts": "^4.1.11",
@@ -35,7 +36,11 @@
     "react-redux": "^7.2.6",
     "react-router": "^5.2.0",
     "react-router-dom": "^5.2.0",
-    "redux": "^4.1.2"
+    "redux": "^4.1.2",
+    "slate": "^0.118.1",
+    "slate-dom": "^0.119.0",
+    "slate-history": "^0.113.1",
+    "slate-react": "^0.119.0"
   },
   "devDependencies": {
     "@arco-design/webpack-plugin": "^1.6.0",

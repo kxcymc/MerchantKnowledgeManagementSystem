@@ -1,19 +1,35 @@
 export type IRoute = {
   name: string;
   key: string;
+  // 当前页是否展示面包屑
   breadcrumb?: boolean;
   children?: IRoute[];
+  // 当前路由是否渲染菜单项，为 true 的话不会在菜单中显示，但可通过路由地址访问。
   ignore?: boolean;
 };
 
 export const routes: IRoute[] = [
   {
+    name: '知识创建',
+    key: 'knowledge-creation',
+  },
+  {
     name: '知识管理',
     key: 'knowledge-management',
     children: [
       {
-        name: '全部',
+        name: '全部文档',
         key: 'knowledge-management/all',
+      },
+      {
+        name: '文档编辑',
+        key: 'knowledge-management/edit',
+        ignore: true,
+      },
+      {
+        name: '富文本文件预览',
+        key: 'knowledge-management/RichTextPreview',
+        ignore: true,
       },
       {
         name: '经营成长',
@@ -40,10 +56,6 @@ export const routes: IRoute[] = [
         key: 'knowledge-management/fund-settlement',
       },
     ],
-  },
-  {
-    name: '知识创建',
-    key: 'knowledge-creation',
   },
   {
     name: '数据可视化',
@@ -78,14 +90,17 @@ export const routes: IRoute[] = [
   {
     name: '异常页',
     key: 'exception',
+    ignore: true,
     children: [
       {
         name: '404',
         key: 'exception/404',
+        ignore: true,
       },
       {
         name: '500',
         key: 'exception/500',
+        ignore: true,
       },
     ],
   },

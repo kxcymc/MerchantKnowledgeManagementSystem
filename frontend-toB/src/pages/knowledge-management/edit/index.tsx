@@ -13,11 +13,12 @@ import {
 } from '@arco-design/web-react';
 import { IconUpload, IconClose } from '@arco-design/web-react/icon';
 import { UploadItem } from '@arco-design/web-react/es/Upload';
-import { useHistory } from 'react-router-dom';
+import { useLocation, useHistory } from 'react-router-dom';
 import type { Descendant } from 'slate';
 import RichTextEditor from '@/components/RichTextEditor/index';
 
 export default function KnowledgeCreation() {
+    const location = useLocation();
     const history = useHistory();
     const [form] = Form.useForm();
     const [mode, setMode] = useState<'pdf' | 'manual'>('pdf');
@@ -30,7 +31,12 @@ export default function KnowledgeCreation() {
             type: 'paragraph',
             children: [{ text: '' }],
         },
-    ]); // 存储富文本编辑器内容
+    ]);
+
+    const knowledgeIdParam = new URLSearchParams(location.search).get('knowledge_id');
+    if (!knowledgeIdParam || Number.isNaN(Number(knowledgeIdParam))) {
+        history.replace(`/404?errRoute=${encodeURIComponent(JSON.stringify([location.pathname, location.search].join('')))}`);
+    }
 
     const onUploadChange = (fl: UploadItem[]) => {
         setFileList(fl);
@@ -48,6 +54,7 @@ export default function KnowledgeCreation() {
         }
     };
 
+    // 新增：清空所有文件
     const handleClearAllFiles = () => {
         if (fileList.length === 0) return;
 
@@ -135,11 +142,22 @@ export default function KnowledgeCreation() {
         else setIsShowSceneSelectCol(false);
     }
 
+    const handleBack = () => {
+        if (history.length > 1) {
+            history.goBack();
+        } else {
+            history.replace('/');
+        }
+    };
+
     return (
         <div style={{ padding: 24 }}>
             <Card>
+                <Button key="back" type="outline" onClick={handleBack}>
+                    返回
+                </Button>
                 <Typography.Title heading={5} style={{ marginTop: 0, textAlign: 'center' }}>
-                    上传PDF / 手动输入
+                    {`修改文档${'1'}`}
                 </Typography.Title>
 
                 <Form

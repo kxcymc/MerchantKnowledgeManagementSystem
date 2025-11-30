@@ -3,23 +3,24 @@ import { Card, Button, Typography, Tag, Descriptions } from '@arco-design/web-re
 import { IconFile, IconCheckCircleFill, IconCloseCircleFill } from '@arco-design/web-react/icon';
 import cs from 'classnames';
 import styles from './style/index.module.less';
+import { useHistory } from 'react-router-dom';
 
 type Props = {
-  id: string;
+  knowledge_id: number;
   title: string;
   type: string;
   file_size: string;
   created_at: string;
   status: string;
   preview?: string;
-  onEdit?: (id: string) => void;
-  onDelete?: (id: string) => void;
+  onEdit?: (id: number) => void;
+  onDelete?: (id: number) => void;
 };
 
 const { Paragraph } = Typography;
 
 const KnowledgeCard: React.FC<Props> = ({
-  id,
+  knowledge_id,
   title,
   type,
   file_size,
@@ -28,6 +29,7 @@ const KnowledgeCard: React.FC<Props> = ({
   onEdit,
   onDelete,
 }) => {
+  const history = useHistory()
   const getStatus = () => {
     if (status === '生效中') {
       return (
@@ -52,6 +54,13 @@ const KnowledgeCard: React.FC<Props> = ({
       </Tag>
     );
   };
+  const previewKnowledge = (id: number, type: string) => {
+    if (type === 'PDF') {
+      console.log('不跳');
+    } else {
+      history.push(`/knowledge-management/RichTextPreview?knowledge_id=${id.toString()}`)
+    }
+  }
 
   return (
     <Card
@@ -65,13 +74,16 @@ const KnowledgeCard: React.FC<Props> = ({
               <IconFile />
             </div>
             <Paragraph ellipsis={{ rows: 1 }} style={{ margin: 0, width: '100%' }}>
-                {title}
+              {title}
             </Paragraph>
           </div>
         </>
       }
     >
       <div className={styles.content}>
+        <div>
+          {getStatus()}
+        </div>
         <Descriptions
           column={1}
           data={[
@@ -82,17 +94,15 @@ const KnowledgeCard: React.FC<Props> = ({
         />
       </div>
       <div className={styles.extra}>
-        <div className={styles['btn-group']}>
-            <Button type="primary" size="mini" onClick={() => onEdit && onEdit(id)} style={{ marginLeft: 8 }}>
-            编辑
-            </Button>
-            <Button status="danger" size="mini" onClick={() => onDelete && onDelete(id)} style={{ marginLeft: 8 }}>
-            删除
-            </Button>
-        </div>
-        <div>
-            {getStatus()}
-        </div>
+        <Button type='secondary' size="mini" onClick={() => previewKnowledge(knowledge_id, type)} style={{ marginLeft: 8 }}>
+          预览
+        </Button>
+        <Button type="primary" size="mini" onClick={() => onEdit && onEdit(knowledge_id)} style={{ marginLeft: 8 }}>
+          编辑
+        </Button>
+        <Button status="danger" size="mini" onClick={() => onDelete && onDelete(knowledge_id)} style={{ marginLeft: 8 }}>
+          删除
+        </Button>
       </div>
     </Card>
   );
