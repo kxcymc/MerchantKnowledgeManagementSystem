@@ -13,7 +13,7 @@ const RichTextPreview = () => {
     const { theme, setTheme } = useContext(GlobalContext);
     const knowledgeIdParam = new URLSearchParams(location.search).get('knowledge_id');
     if (!knowledgeIdParam || Number.isNaN(Number(knowledgeIdParam))) {
-        history.replace(`/404?errRoute=${encodeURIComponent(JSON.stringify([location.pathname, location.search].join('')))}`);
+        history.replace(`expection/404?errRoute=${encodeURIComponent(JSON.stringify([location.pathname, location.search].join('')))}`);
     }
 
     useEffect(() => {

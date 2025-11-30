@@ -88,21 +88,14 @@ export const routes: IRoute[] = [
     ],
   },
   {
-    name: '异常页',
-    key: 'exception',
+    name: '404',
+    key: 'exception/404',
     ignore: true,
-    children: [
-      {
-        name: '404',
-        key: 'exception/404',
-        ignore: true,
-      },
-      {
-        name: '500',
-        key: 'exception/500',
-        ignore: true,
-      },
-    ],
+  },
+  {
+    name: '500',
+    key: 'exception/500',
+    ignore: true,
   },
 ];
 

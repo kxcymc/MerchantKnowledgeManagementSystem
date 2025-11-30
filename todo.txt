@@ -1,0 +1,3 @@
+把edit和知识卡片组件的previewKnowledge补上pdf的预览url！！
+
+pdf预览用window.open做吗？

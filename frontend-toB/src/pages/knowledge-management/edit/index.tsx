@@ -21,64 +21,36 @@ export default function KnowledgeCreation() {
     const location = useLocation();
     const history = useHistory();
     const [form] = Form.useForm();
-    const [mode, setMode] = useState<'pdf' | 'manual'>('pdf');
-    const [fileList, setFileList] = useState<UploadItem[]>([]);
-    const [fileLinks, setFileLinks] = useState<Record<string, string>>({});
-    const [selectedFile, setSelectedFile] = useState<string>('');
-    const [isShowSceneSelectCol, setIsShowSceneSelectCol] = useState(false);
-    const [editorContent, setEditorContent] = useState<Descendant[]>([
-        {
-            type: 'paragraph',
-            children: [{ text: '' }],
-        },
-    ]);
+    const [mode, setMode] = useState<'pdf' | '富文本' | ''>('');
+    const [uploadedFile, setUploadedFile] = useState<UploadItem | null>(null);
+    const [fileLink, setFileLink] = useState<string>('');
 
-    const knowledgeIdParam = new URLSearchParams(location.search).get('knowledge_id');
+    const params = new URLSearchParams(location.search)
+    const knowledgeIdParam = params.get('knowledge_id');
     if (!knowledgeIdParam || Number.isNaN(Number(knowledgeIdParam))) {
-        history.replace(`/404?errRoute=${encodeURIComponent(JSON.stringify([location.pathname, location.search].join('')))}`);
+        history.replace(`expection/404?errRoute=${encodeURIComponent(JSON.stringify([location.pathname, location.search].join('')))}`);
     }
+    const DocTitleParam = params.get('title') ? '《' + params.get('title') + '》' : '';
+    const fileTypeParam = params.get('type') || '';
 
+    // 修改：处理单个文件上传
     const onUploadChange = (fl: UploadItem[]) => {
-        setFileList(fl);
-    };
-
-    const handleRemoveFile = (uid: string) => {
-        setFileList((prev) => prev.filter((item) => item.uid !== uid));
-        setFileLinks((prev) => {
-            const newLinks = { ...prev };
-            delete newLinks[uid];
-            return newLinks;
-        });
-        if (selectedFile === uid) {
-            setSelectedFile('');
+        // 只保留最新选择的文件
+        if (fl && fl.length > 0) {
+            setUploadedFile(fl[fl.length - 1]);
+        } else {
+            setUploadedFile(null);
         }
     };
 
-    // 新增：清空所有文件
-    const handleClearAllFiles = () => {
-        if (fileList.length === 0) return;
-
-        Modal.confirm({
-            title: '二次确认',
-            content: (
-                <div style={{ textAlign: 'center' }}>
-                    确定要清空 {fileList.length} 个已上传的文件吗？
-                </div>
-            ),
-            onOk: () => {
-                setFileList([]);
-                setFileLinks({});
-                setSelectedFile('');
-                Message.success('已清空所有文件');
-            },
-        });
+    const handleRemoveFile = () => {
+        setUploadedFile(null);
+        setFileLink('');
+        Message.success('文件已移除');
     };
 
-    const handleLinkChange = (uid: string, value: string) => {
-        setFileLinks((prev) => ({
-            ...prev,
-            [uid]: value,
-        }));
+    const handleLinkChange = (value: string) => {
+        setFileLink(value);
     };
 
     interface Payload {
@@ -86,7 +58,7 @@ export default function KnowledgeCreation() {
         scene: string;
         file_url?: string;
         title?: string;
-        mode: 'pdf' | 'manual';
+        mode: 'pdf' | '富文本' | '';
         content?: string;
         files?: { name: string; size: number; link?: string }[];
     }
@@ -98,7 +70,7 @@ export default function KnowledgeCreation() {
                 Message.error('请选择所属业务');
                 return;
             }
-            if (!values.scene) {
+            if (isShowSceneSelectCol && !values.scene) {
                 Message.error('请选择所属场景');
                 return;
             }
@@ -110,14 +82,17 @@ export default function KnowledgeCreation() {
                 mode,
             };
 
-            if (mode === 'manual') {
+            if (mode === '富文本') {
                 payload.content = JSON.stringify(editorContent);
             } else {
-                payload.files = fileList.map((f) => ({
-                    name: f.name || (f.originFile && f.originFile.name) || 'unknown',
-                    size: (f.originFile && (f.originFile as File).size) || 0,
-                    link: fileLinks[f.uid] || '',
-                }));
+                // 修改：将单个文件包装成数组格式提交
+                if (uploadedFile) {
+                    payload.files = [{
+                        name: uploadedFile.name || (uploadedFile.originFile && uploadedFile.originFile.name) || 'unknown',
+                        size: (uploadedFile.originFile && (uploadedFile.originFile as File).size) || 0,
+                        link: fileLink,
+                    }];
+                }
             }
 
             console.log('提交负载：', payload);
@@ -127,14 +102,6 @@ export default function KnowledgeCreation() {
             Message.error('请检查表单必填项');
         }
     };
-
-    const fileOptions = [
-        { label: '选择文件', value: '' },
-        ...fileList.map(file => ({
-            label: file.name || (file.originFile && file.originFile.name) || 'unknown',
-            value: file.uid
-        }))
-    ];
 
     const handleValuesChange = () => {
         if (form.getFieldValue('business') === '招商入驻')
@@ -150,6 +117,26 @@ export default function KnowledgeCreation() {
         }
     };
 
+    function previewKnowledge(id: number, type: string, url = '') {
+        if (type === 'PDF') {
+            if (url) window.open(url, '_blank');
+            else
+                Modal.info({
+                    title: '该PDF不支持预览'
+                })
+        } else {
+            history.push(`/knowledge-management/RichTextPreview?knowledge_id=${id.toString()}`)
+        }
+    }
+
+    const [editorContent, setEditorContent] = useState<Descendant[]>([
+        {
+            type: 'paragraph',
+            children: [{ text: '' }],
+        },
+    ]);
+    const [isShowSceneSelectCol, setIsShowSceneSelectCol] = useState(false);
+
     return (
         <div style={{ padding: 24 }}>
             <Card>
@@ -157,7 +144,7 @@ export default function KnowledgeCreation() {
                     返回
                 </Button>
                 <Typography.Title heading={5} style={{ marginTop: 0, textAlign: 'center' }}>
-                    {`修改文档${'1'}`}
+                    {`${DocTitleParam}文档编辑`}
                 </Typography.Title>
 
                 <Form
@@ -167,191 +154,131 @@ export default function KnowledgeCreation() {
                     wrapperCol={{ span: 18 }}
                     onValuesChange={handleValuesChange}
                 >
-                    <Form.Item label="创建方式">
+                    <Form.Item label="原文件预览">
+                        <Button type='secondary' size="large" onClick={() => previewKnowledge(Number(knowledgeIdParam), fileTypeParam)} style={{ marginLeft: 8 }}>
+                            点击预览
+                        </Button>
+                    </Form.Item>
+                    <Form.Item label="编辑方式"
+                        extra={(mode && (mode !== fileTypeParam || fileTypeParam !== '富文本'))
+                            ? "选择该方式，将丢弃原文件" : ''}
+                        field='type'
+                        rules={[{ required: true, message: '请选择一种编辑方式' }]}>
                         <Radio.Group value={mode} onChange={(val) => setMode(val)}>
                             <Radio value="pdf">PDF 上传</Radio>
-                            <Radio value="manual">手动输入</Radio>
+                            <Radio value="富文本">手动输入</Radio>
                         </Radio.Group>
                     </Form.Item>
-                    <Form.Item label="所属业务" field="business" rules={[{ required: true, message: '请选择所属业务' }]}>
-                        <Select placeholder="请选择业务">
-                            <Select.Option value="经营成长">经营成长</Select.Option>
-                            <Select.Option value="招商入驻">招商入驻</Select.Option>
-                            <Select.Option value="资金结算">资金结算</Select.Option>
-                        </Select>
-                    </Form.Item>
 
-                    {isShowSceneSelectCol && (
-                        <Form.Item label="所属场景" field="scene" rules={[{ required: true, message: '请选择所属场景' }]}>
-                            <Select placeholder="请选择场景">
-                                <Select.Option value="入驻与退出">入驻与退出</Select.Option>
-                                <Select.Option value="保证金管理">保证金管理</Select.Option>
-                            </Select>
-                        </Form.Item>
-                    )}
+                    {mode &&
+                        (
+                            <>
+                                <Form.Item label="编辑业务" field="business" rules={[{ required: true, message: '请选择所属业务' }]}>
+                                    <Select placeholder="请选择业务">
+                                        <Select.Option value="经营成长">经营成长</Select.Option>
+                                        <Select.Option value="招商入驻">招商入驻</Select.Option>
+                                        <Select.Option value="资金结算">资金结算</Select.Option>
+                                    </Select>
+                                </Form.Item>
 
-                    {mode === 'pdf' && (
-                        <>
-                            <Form.Item label="文件上传"
-                                field="files"
-                                rules={[{ required: true, message: '请上传至少一个PDF文件' }]}
-                                getValueFromEvent={(files) => files}
-                            >
-                                <div style={{ display: 'flex', gap: 12 }}>
-                                    <Upload
-                                        accept=".pdf"
-                                        multiple
-                                        fileList={fileList}
-                                        onChange={onUploadChange}
-                                        showUploadList={false}
-                                        autoUpload={false}
-                                    >
-                                        <Button type="outline">
-                                            <IconUpload /> 选择 PDF 文件（支持多文件）
-                                        </Button>
-                                    </Upload>
-                                    {fileList.length > 0 && (
-                                        <Button
-                                            type="outline"
-                                            status="warning"
-                                            onClick={handleClearAllFiles}
-                                        >
-                                            清空
-                                        </Button>
-                                    )}
-                                </div>
-
-                                {fileList.length > 0 && (
-                                    <div style={{
-                                        display: 'grid',
-                                        gridTemplateColumns: 'repeat(3, 1fr)',
-                                        gap: 12,
-                                        marginTop: 12,
-                                        maxHeight: 300,
-                                        overflowY: fileList.length > 6 ? 'auto' : 'visible',
-                                        padding: 2
-                                    }}>
-                                        {fileList.map((file) => (
-                                            <div
-                                                key={file.uid}
-                                                style={{
-                                                    border: '1px solid #e5e6eb',
-                                                    borderRadius: 4,
-                                                    padding: 12,
-                                                    display: 'flex',
-                                                    justifyContent: 'space-between',
-                                                    alignItems: 'center',
-                                                    background: '#fff'
-                                                }}
-                                            >
-                                                <div style={{
-                                                    flex: 1,
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
-                                                    whiteSpace: 'nowrap',
-                                                    marginRight: 8,
-                                                    fontSize: 14,
-                                                    color: '#1d2129'
-                                                }}>
-                                                    {file.name}
-                                                </div>
-                                                <IconClose
-                                                    style={{ cursor: 'pointer', color: '#86909c' }}
-                                                    onClick={() => handleRemoveFile(file.uid)}
-                                                />
-                                            </div>
-                                        ))}
-                                    </div>
+                                {isShowSceneSelectCol && (
+                                    <Form.Item label="编辑场景" field="scene" rules={[{ required: true, message: '请选择所属场景' }]}>
+                                        <Select placeholder="请选择场景">
+                                            <Select.Option value="入驻与退出">入驻与退出</Select.Option>
+                                            <Select.Option value="保证金管理">保证金管理</Select.Option>
+                                        </Select>
+                                    </Form.Item>
                                 )}
-                            </Form.Item>
 
-                            {fileList.length === 1 &&
-                                (<Form.Item label="文件标题" field="title" rules={[{ required: true }]}>
-                                    <Input placeholder="建议和上传的文件名一致" />
-                                </Form.Item>)
-                            }
+                                {mode === 'pdf' && (
+                                    <>
+                                        <Form.Item label="新文件上传"
+                                            field="files"
+                                            rules={[{ required: true, message: '请上传一个PDF文件' }]}
+                                            getValueFromEvent={(files) => files}
+                                        >
+                                            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                                                <Upload
+                                                    accept=".pdf"
+                                                    fileList={uploadedFile ? [uploadedFile] : []}
+                                                    onChange={onUploadChange}
+                                                    showUploadList={false}
+                                                    autoUpload={false}
+                                                    multiple={false} // 明确禁止多选
+                                                >
+                                                    <Button type="outline">
+                                                        <IconUpload /> 选择 PDF 文件
+                                                    </Button>
+                                                </Upload>
+                                            </div>
 
-                            {fileList.length > 0 &&
-                                (
-                                    <Form.Item
-                                        label="引用链接"
-                                        extra="选择文件并填写对应的引用链接，没有则留空"
-                                    >
-                                        <div style={{ display: 'flex', gap: 12 }}>
-                                            <Select
-                                                placeholder="选择文件"
-                                                value={selectedFile}
-                                                onChange={(val) => setSelectedFile(val)}
-                                                style={{ width: 200 }}
-                                            >
-                                                {fileOptions.map(option => (
-                                                    <Select.Option key={option.value} value={option.value}>
-                                                        {option.label}
-                                                    </Select.Option>
-                                                ))}
-                                            </Select>
+                                            {uploadedFile && (
+                                                <div
+                                                    style={{
+                                                        border: '1px solid #e5e6eb',
+                                                        borderRadius: 4,
+                                                        padding: 12,
+                                                        display: 'flex',
+                                                        justifyContent: 'space-between',
+                                                        alignItems: 'center',
+                                                        background: '#fff',
+                                                        marginTop: 12
+                                                    }}
+                                                >
+                                                    <div style={{
+                                                        flex: 1,
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        whiteSpace: 'nowrap',
+                                                        marginRight: 8,
+                                                        fontSize: 14,
+                                                        color: '#1d2129'
+                                                    }}>
+                                                        {uploadedFile.name}
+                                                    </div>
+                                                    <IconClose
+                                                        style={{ cursor: 'pointer', color: '#86909c' }}
+                                                        onClick={handleRemoveFile}
+                                                    />
+                                                </div>
+                                            )}
+                                        </Form.Item>
+
+                                        <Form.Item label="文件标题" field="title" rules={[{ required: true, message: '请填写文件标题' }]}>
+                                            <Input placeholder="建议和上传的文件名一致" />
+                                        </Form.Item>
+
+                                        <Form.Item
+                                            label="引用链接"
+                                            extra="没有则留空"
+                                            field='attachedLinks'
+                                        >
                                             <Input
                                                 placeholder="填写文件在抖音商家知识中心对应的原文链接"
-                                                value={selectedFile ? fileLinks[selectedFile] || '' : ''}
-                                                onChange={(val) => {
-                                                    if (selectedFile) {
-                                                        handleLinkChange(selectedFile, val);
-                                                    }
-                                                }}
-                                                disabled={!selectedFile}
-                                                style={{ flex: 1 }}
+                                                value={''}
+                                                onChange={(val) => handleLinkChange(val)}
+                                                style={{ width: '100%' }}
                                             />
-                                        </div>
-                                    </Form.Item>
-                                )
-                            }
-                        </>
-                    )}
+                                        </Form.Item>
+                                    </>
+                                )}
 
-                    {mode === 'manual' && (
-                        <>
-                            <Form.Item label="文档标题" field="title" rules={[{ required: true, message: '请输入标题' }]}>
-                                <Input placeholder="输入标题" />
-                            </Form.Item>
+                                {mode === '富文本' && (
+                                    <>
+                                        <Form.Item label="文档标题" field="title" rules={[{ required: true, message: '请输入标题' }]}>
+                                            <Input placeholder="输入标题" />
+                                        </Form.Item>
 
-                            <Form.Item label="富文本内容" field='text-content' rules={[{ required: true, message: '请输入内容' }]}>
-                                <RichTextEditor
-                                    value={editorContent}
-                                    onChange={setEditorContent}
-                                />
-                            </Form.Item>
-
-                            {/* <Form.Item label="转换为PDF文件"
-                                field="files"
-                                rules={[{ required: true, message: '请上传至少一个PDF文件' }]}
-                                getValueFromEvent={(files) => files}
-                            >
-                                <div style={{ display: 'flex', gap: 12 }}>
-                                    <Upload
-                                        accept=".pdf"
-                                        multiple
-                                        fileList={fileList}
-                                        onChange={onUploadChange}
-                                        showUploadList={false}
-                                        autoUpload={false}
-                                    >
-                                        <Button type="outline">
-                                            <IconUpload /> 选择 PDF 文件
-                                        </Button>
-                                    </Upload>
-                                    {fileList.length > 0 && (
-                                        <Button
-                                            type="outline"
-                                            status="warning"
-                                            onClick={handleClearAllFiles}
-                                        >
-                                            清空
-                                        </Button>
-                                    )}
-                                </div>
-                            </Form.Item> */}
-                        </>
-                    )}
+                                        <Form.Item label="富文本内容" field='text-content' rules={[{ required: true, message: '请输入内容' }]}>
+                                            <RichTextEditor
+                                                value={editorContent}
+                                                onChange={setEditorContent}
+                                            />
+                                        </Form.Item>
+                                    </>
+                                )}
+                            </>
+                        )}
 
                     <Form.Item wrapperCol={{ offset: 4 }}>
                         <Button type="primary" onClick={handleSubmit}>提交</Button>

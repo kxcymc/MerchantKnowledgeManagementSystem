@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, Button, Typography, Tag, Descriptions } from '@arco-design/web-react';
+import { Card, Button, Typography, Tag, Descriptions, Modal } from '@arco-design/web-react';
 import { IconFile, IconCheckCircleFill, IconCloseCircleFill } from '@arco-design/web-react/icon';
 import cs from 'classnames';
 import styles from './style/index.module.less';
@@ -54,9 +54,13 @@ const KnowledgeCard: React.FC<Props> = ({
       </Tag>
     );
   };
-  const previewKnowledge = (id: number, type: string) => {
+  function previewKnowledge(id: number, type: string, url = '') {
     if (type === 'PDF') {
-      console.log('不跳');
+      if (url) window.open(url, '_blank');
+      else
+        Modal.info({
+          title: '该PDF不支持预览'
+        })
     } else {
       history.push(`/knowledge-management/RichTextPreview?knowledge_id=${id.toString()}`)
     }

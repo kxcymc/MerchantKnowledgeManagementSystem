@@ -93,16 +93,20 @@ export default function KnowledgeAll() {
         setFormParams(params);
     }
 
-    function previewKnowledge(id: number, type: string) {
+    function previewKnowledge(id: number, type: string, url = '') {
         if (type === 'PDF') {
-            console.log('不跳');
+            if (url) window.open(url, '_blank');
+            else
+                Modal.info({
+                    title: '该PDF不支持预览'
+                })
         } else {
             history.push(`/knowledge-management/RichTextPreview?knowledge_id=${id.toString()}`)
         }
     }
 
-    const goEditPage = (id: number, title: string) => {
-        history.push(`/knowledge-management/edit?knowledge_id=${id.toString()}&title=${title}`)
+    const goEditPage = (id: number, title: string, type: string) => {
+        history.push(`/knowledge-management/edit?knowledge_id=${id.toString()}&title=${title}&type=${type}`)
     }
 
     const columns = [
@@ -155,8 +159,8 @@ export default function KnowledgeAll() {
             dataIndex: 'op',
             render: (_, row) => (
                 <>
-                    <Button type='secondary' onClick={() => previewKnowledge(row.knowledge_id, row.type)}>预览</Button>
-                    <Button type="text" onClick={() => goEditPage(row.knowledge_id, row.title)}>编辑</Button>
+                    <Button type='secondary' onClick={() => previewKnowledge(row.knowledge_id, row.type, row.pdf_url)}>预览</Button>
+                    <Button type="text" onClick={() => goEditPage(row.knowledge_id, row.title, row.type)}>编辑</Button>
                     <Button type="text" status="danger" onClick={() => handleDelete(row.knowledge_id, row.title)}>删除</Button>
                 </>
             ),

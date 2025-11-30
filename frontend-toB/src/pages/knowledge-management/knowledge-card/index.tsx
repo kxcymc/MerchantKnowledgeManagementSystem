@@ -42,8 +42,8 @@ const Index: React.FC = () => {
         }))
     }, [businessName, sceneName])
 
-    const goEditPage = (id: number, title: string) => {
-        history.push(`/knowledge-management/edit?knowledge_id=${id.toString()}&title=${title}`)
+    const goEditPage = (id: number, title: string, type:string) => {
+        history.push(`/knowledge-management/edit?knowledge_id=${id.toString()}&title=${title}&type=${type}`)
     }
 
     const deleteKnowledge = (id: number, title:string) => {
@@ -99,7 +99,7 @@ const Index: React.FC = () => {
                                     file_size={doc.file_size}
                                     created_at={doc.created_at}
                                     status={doc.status}
-                                    onEdit={() => goEditPage(doc.knowledge_id, doc.title)}
+                                    onEdit={() => goEditPage(doc.knowledge_id, doc.title, doc.type)}
                                     onDelete={() => deleteKnowledge(doc.knowledge_id, doc.title)}
                                 />
                             </Col>
