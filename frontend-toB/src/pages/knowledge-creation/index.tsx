@@ -19,6 +19,7 @@ import RichTextEditor from '@/components/RichTextEditor/index';
 
 export default function KnowledgeCreation() {
     const [form] = Form.useForm();
+    const [hasValue, setHasValue] = useState(false);
     const [mode, setMode] = useState<'pdf' | '富文本' | ''>('');
     const [fileList, setFileList] = useState<UploadItem[]>([]);
     const [selectedFile, setSelectedFile] = useState<string>('');
@@ -120,6 +121,9 @@ export default function KnowledgeCreation() {
     };
 
     const handleValuesChange = () => {
+        setHasValue(Object.values(form.getFieldsValue()).some(val =>
+            val !== undefined && val !== '' && val !== null
+        ));
         if (form.getFieldValue('business') === '招商入驻')
             setIsShowSceneSelectCol(true);
         else {
@@ -141,7 +145,7 @@ export default function KnowledgeCreation() {
                     wrapperCol={{ span: 18 }}
                     onValuesChange={handleValuesChange}
                 >
-                    <Form.Item label="创建方式" field='type'>
+                    <Form.Item label="创建方式">
                         <Radio.Group value={mode} onChange={(val) => setMode(val)}>
                             <Radio value="pdf">PDF 上传</Radio>
                             <Radio value="富文本">手动输入</Radio>
@@ -268,7 +272,7 @@ export default function KnowledgeCreation() {
                     )}
 
                     <Form.Item wrapperCol={{ offset: 4 }}>
-                        <Button type="primary" onClick={handleSubmit}>提交</Button>
+                        <Button type="primary" onClick={handleSubmit} disabled={!hasValue}>提交</Button>
                         <Button style={{ marginLeft: 12 }} onClick={() => history.push('/knowledge-management/all')}>取消</Button>
                     </Form.Item>
                 </Form>

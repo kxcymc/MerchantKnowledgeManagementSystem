@@ -21,6 +21,7 @@ export default function KnowledgeCreation() {
     const location = useLocation();
     const history = useHistory();
     const [form] = Form.useForm();
+    const [hasValue, setHasValue] = useState(false);
     const [mode, setMode] = useState<'pdf' | '富文本' | ''>('');
     const [uploadedFile, setUploadedFile] = useState<UploadItem | null>(null);
 
@@ -60,14 +61,6 @@ export default function KnowledgeCreation() {
     const handleSubmit = async () => {
         try {
             const values = await form.validate();
-            if (!values.business) {
-                Message.error('请选择所属业务');
-                return;
-            }
-            if (isShowSceneSelectCol && !values.scene) {
-                Message.error('请选择所属场景');
-                return;
-            }
 
             const payload: Partial<Payload> = {
                 business: values.business,
@@ -97,6 +90,9 @@ export default function KnowledgeCreation() {
     };
 
     const handleValuesChange = () => {
+        setHasValue(Object.values(form.getFieldsValue()).some(val =>
+            val !== undefined && val !== '' && val !== null
+        ));
         if (form.getFieldValue('business') === '招商入驻')
             setIsShowSceneSelectCol(true);
         else setIsShowSceneSelectCol(false);
@@ -154,7 +150,6 @@ export default function KnowledgeCreation() {
                     </Form.Item>
                     <Form.Item label="编辑方式"
                         extra='修改将覆盖原文件'
-                        field='type'
                     >
                         <Radio.Group value={mode} onChange={(val) => setMode(val)}>
                             <Radio value="pdf">PDF 上传</Radio>
@@ -259,7 +254,7 @@ export default function KnowledgeCreation() {
                         )}
 
                     <Form.Item wrapperCol={{ offset: 4 }}>
-                        <Button type="primary" onClick={handleSubmit}>提交</Button>
+                        <Button type="primary" onClick={handleSubmit} disabled={!hasValue}>提交</Button>
                         <Button style={{ marginLeft: 12 }} onClick={() => history.push('/knowledge-management/all')}>取消</Button>
                     </Form.Item>
                 </Form>
