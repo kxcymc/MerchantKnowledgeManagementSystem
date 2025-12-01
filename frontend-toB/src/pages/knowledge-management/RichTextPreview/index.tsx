@@ -2,7 +2,7 @@ import React, { useContext, useEffect } from "react";
 import { useHistory, useLocation } from 'react-router-dom';
 import styles from './style/index.module.less';
 import RichTextReader from "@/components/RichTextReader";
-import { RICH_TEXT_EXAMPLE_DATA } from "@/constant";
+import { RICH_TEXT_MULTIPLE_DATA, RICH_TEXT_SINGLE_DATA } from "@/constant";
 import { Button, Modal } from "@arco-design/web-react";
 import { GlobalContext } from '@/context';
 
@@ -42,7 +42,8 @@ const RichTextPreview = () => {
             <Button key="back" type="outline" onClick={handleBack} className={styles.backBtn}>
                 返回
             </Button>
-            <RichTextReader value={RICH_TEXT_EXAMPLE_DATA}></RichTextReader>
+            {/* <RichTextReader value={RICH_TEXT_SINGLE_DATA} showNavBtn={false}></RichTextReader> */}
+            <RichTextReader value={RICH_TEXT_MULTIPLE_DATA}></RichTextReader>
         </div>
     );
 }

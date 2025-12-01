@@ -7,7 +7,6 @@ import {
   IconPenFill,
   IconApps,
   IconCheckCircle,
-  IconExclamationCircle,
   IconMenuFold,
   IconMenuUnfold,
 } from '@arco-design/web-react/icon';
@@ -97,6 +96,7 @@ function PageLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState(defaultSelectedKeys);
   const [openKeys, setOpenKeys] = useState(defaultOpenKeys);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const routeMap = useRef(new Map());
   const menuMap = useRef(new Map());
@@ -125,8 +125,8 @@ function PageLayout() {
     setCollapsed((collapsed) => !collapsed);
   }
 
-  const paddingLeft = showMenu ? { paddingLeft: menuWidth } : {};
-  const paddingTop = showNavbar ? { paddingTop: navbarHeight } : {};
+  const paddingLeft = showMenu && !isFullscreen ? { paddingLeft: menuWidth } : {};
+  const paddingTop = showNavbar && !isFullscreen ? { paddingTop: navbarHeight } : {};
   const paddingStyle = { ...paddingLeft, ...paddingTop };
 
   function renderRoutes() {
@@ -196,23 +196,24 @@ function PageLayout() {
     const routeConfig = routeMap.current.get(pathname);
     setBreadCrumb(routeConfig || []);
     updateMenuStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
   return (
     <Layout className={styles.layout}>
       <div
         className={cs(styles['layout-navbar'], {
-          [styles['layout-navbar-hidden']]: !showNavbar,
+          [styles['layout-navbar-hidden']]: !showNavbar || isFullscreen,
         })}
       >
-        <Navbar show={showNavbar} />
+        <Navbar show={showNavbar && !isFullscreen} isFullscreen={isFullscreen} onFullscreenChange={setIsFullscreen} />
       </div>
 
       {userLoading ? (
         <Spin className={styles['spin']} />
       ) : (
         <Layout>
-          {showMenu && (
+          {showMenu && !isFullscreen && (
             <Sider
               className={styles['layout-sider']}
               width={menuWidth}

@@ -10,7 +10,269 @@ export const emptyData = [
     }
 ]
 
-export const RICH_TEXT_EXAMPLE_DATA: Descendant[][] = [
+// 单页文档
+export const RICH_TEXT_SINGLE_DATA: Descendant[] = [
+    // 标题
+    {
+        type: 'heading-one',
+        children: [{ text: '📄 富文本编辑器功能演示' }],
+    },
+    {
+        type: 'paragraph',
+        children: [{ text: '这是一个功能完整的富文本编辑器示例，展示了所有支持的文本格式和块级元素。' }],
+    },
+    
+    // 基础文本样式
+    {
+        type: 'heading-two',
+        children: [{ text: '🎨 基础文本样式' }],
+    },
+    {
+        type: 'paragraph',
+        children: [
+            { text: '普通文本 ' },
+            { text: '加粗文本', bold: true },
+            { text: ' ' },
+            { text: '斜体文本', italic: true },
+            { text: ' ' },
+            { text: '下划线文本', underline: true },
+            { text: ' ' },
+            { text: '删除线文本', strikethrough: true },
+            { text: ' ' },
+            { text: '多种样式组合', bold: true, italic: true, underline: true },
+        ],
+    },
+    
+    // 标题层级
+    {
+        type: 'heading-two',
+        children: [{ text: '📑 标题层级' }],
+    },
+    {
+        type: 'heading-one',
+        children: [{ text: '一级标题 - 最大的标题' }],
+    },
+    {
+        type: 'heading-two',
+        children: [{ text: '二级标题 - 次级标题' }],
+    },
+    {
+        type: 'heading-three',
+        children: [{ text: '三级标题 - 小标题' }],
+    },
+    {
+        type: 'paragraph',
+        children: [{ text: '回到普通段落文本。' }],
+    },
+    
+    // 列表
+    {
+        type: 'heading-two',
+        children: [{ text: '📝 列表' }],
+    },
+    {
+        type: 'paragraph',
+        children: [{ text: '无序列表示例：' }],
+    },
+    {
+        type: 'bulleted-list',
+        children: [
+            {
+                type: 'list-item',
+                children: [{ text: '无序列表项 1' }],
+            },
+            {
+                type: 'list-item',
+                children: [{ text: '无序列表项 2' }],
+            },
+            {
+                type: 'list-item',
+                children: [{ text: '无序列表项 3，包含 ' }, { text: '加粗样式', bold: true }],
+            },
+        ],
+    },
+    {
+        type: 'paragraph',
+        children: [{ text: '有序列表示例：' }],
+    },
+    {
+        type: 'numbered-list',
+        children: [
+            {
+                type: 'list-item',
+                children: [{ text: '第一步：准备工作' }],
+            },
+            {
+                type: 'list-item',
+                children: [{ text: '第二步：执行操作' }],
+            },
+            {
+                type: 'list-item',
+                children: [{ text: '第三步：检查结果' }],
+            },
+        ],
+    },
+    
+    // 引用块
+    {
+        type: 'heading-two',
+        children: [{ text: '💬 引用块' }],
+    },
+    {
+        type: 'block-quote',
+        children: [{ text: '这是一个引用块示例。引用通常用于强调重要内容、展示名人名言或引用的文字。' }],
+    },
+    {
+        type: 'block-quote',
+        children: [
+            { text: '引用块也可以包含 ' },
+            { text: '多种文本样式', bold: true, italic: true },
+            { text: '，让引用内容更加突出。' },
+        ],
+    },
+    
+    // 超链接
+    {
+        type: 'heading-two',
+        children: [{ text: '🔗 超链接' }],
+    },
+    {
+        type: 'paragraph',
+        children: [
+            { text: '点击访问 ' },
+            { type: 'link', url: 'https://www.example.com', children: [{ text: '示例网站' }] } as any,
+            { text: ' 了解更多信息。' },
+        ],
+    },
+    {
+        type: 'paragraph',
+        children: [
+            { text: '也可以链接到 ' },
+            { type: 'link', url: 'https://github.com', children: [{ text: 'GitHub' }] } as any,
+            { text: ' 或 ' },
+            { type: 'link', url: 'https://stackoverflow.com', children: [{ text: 'Stack Overflow' }] } as any,
+            { text: '。' },
+        ],
+    },
+    
+    // 排版样式
+    {
+        type: 'heading-two',
+        children: [{ text: '📐 排版样式示例' }],
+    },
+    {
+        type: 'paragraph',
+        lineHeight: 2,
+        marginBottom: 1,
+        children: [{ text: '这段文本设置了 2 倍行高和 1em 段间距，文本之间更加宽松，阅读体验更好。' }],
+    },
+    {
+        type: 'paragraph',
+        textIndent: 2,
+        children: [{ text: '这段文本设置了 2em 的首行缩进，常见于中文文章的段落排版，是传统的段落格式。' }],
+    },
+    {
+        type: 'paragraph',
+        letterSpacing: 1,
+        children: [{ text: '这段文本设置了 1px 的字间距，文字看起来更宽松，适合特殊的排版需求。' }],
+    },
+    
+    // 对齐方式
+    {
+        type: 'heading-two',
+        children: [{ text: '🎯 对齐方式' }],
+    },
+    {
+        type: 'paragraph',
+        align: 'left',
+        children: [{ text: '左对齐文本：这是最常见的文本对齐方式，文本从左到右排列。' }],
+    },
+    {
+        type: 'paragraph',
+        align: 'center',
+        children: [{ text: '居中对齐文本：常用于标题或需要强调的段落。' }],
+    },
+    {
+        type: 'paragraph',
+        align: 'right',
+        children: [{ text: '右对齐文本：常用于特殊排版需求或日期、签名等。' }],
+    },
+    
+    // 水平分割线
+    {
+        type: 'heading-two',
+        children: [{ text: '✂️ 水平分割线' }],
+    },
+    {
+        type: 'paragraph',
+        children: [{ text: '上方是水平分割线示例。' }],
+    },
+    {
+        type: 'horizontal-rule',
+        children: [{ text: '' }],
+    },
+    {
+        type: 'paragraph',
+        children: [{ text: '下方是水平分割线示例。分割线用于分隔不同章节或内容区块。' }],
+    },
+    
+    // 复杂组合
+    {
+        type: 'heading-two',
+        children: [{ text: '🎪 复杂组合示例' }],
+    },
+    {
+        type: 'paragraph',
+        children: [
+            { text: '在段落中插入 ' },
+            { text: '列表', bold: true, underline: true },
+            { text: '：' },
+        ],
+    },
+    {
+        type: 'bulleted-list',
+        children: [
+            {
+                type: 'list-item',
+                children: [
+                    { text: '列表项中的 ' },
+                    { text: '超链接', italic: true },
+                    { text: '： ' },
+                    { type: 'link', url: 'https://github.com', children: [{ text: 'GitHub' }] } as any,
+                ],
+            },
+            {
+                type: 'list-item',
+                children: [
+                    { text: '列表项中的 ' },
+                    { text: '多种样式', bold: true, strikethrough: true, italic: true },
+                    { text: ' 组合' },
+                ],
+            },
+        ],
+    },
+    {
+        type: 'block-quote',
+        children: [
+            { text: '引用块中的 ' },
+            { text: '超链接', bold: true },
+            { text: '：访问 ' },
+            { type: 'link', url: 'https://www.google.com', children: [{ text: 'Google' }] } as any,
+            { text: ' 搜索更多信息。' },
+        ],
+    },
+    {
+        type: 'paragraph',
+        align: 'center',
+        lineHeight: 1.8,
+        children: [
+            { text: '最后一段，居中对齐，1.8 倍行高，感谢阅读！', italic: true, bold: true },
+        ],
+    },
+];
+
+// 多页文档
+export const RICH_TEXT_MULTIPLE_DATA: Descendant[][] = [
   // 第1页：基础格式测试
   [
     {

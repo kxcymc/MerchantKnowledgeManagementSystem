@@ -23,7 +23,6 @@ export default function KnowledgeCreation() {
     const [form] = Form.useForm();
     const [mode, setMode] = useState<'pdf' | '富文本' | ''>('');
     const [uploadedFile, setUploadedFile] = useState<UploadItem | null>(null);
-    const [fileLink, setFileLink] = useState<string>('');
 
     const params = new URLSearchParams(location.search)
     const knowledgeIdParam = params.get('knowledge_id');
@@ -45,12 +44,7 @@ export default function KnowledgeCreation() {
 
     const handleRemoveFile = () => {
         setUploadedFile(null);
-        setFileLink('');
         Message.success('文件已移除');
-    };
-
-    const handleLinkChange = (value: string) => {
-        setFileLink(value);
     };
 
     interface Payload {
@@ -90,7 +84,6 @@ export default function KnowledgeCreation() {
                     payload.files = [{
                         name: uploadedFile.name || (uploadedFile.originFile && uploadedFile.originFile.name) || 'unknown',
                         size: (uploadedFile.originFile && (uploadedFile.originFile as File).size) || 0,
-                        link: fileLink,
                     }];
                 }
             }
@@ -162,7 +155,7 @@ export default function KnowledgeCreation() {
                     <Form.Item label="编辑方式"
                         extra='修改将覆盖原文件'
                         field='type'
-                        rules={[{ required: true, message: '请选择一种编辑方式' }]}>
+                    >
                         <Radio.Group value={mode} onChange={(val) => setMode(val)}>
                             <Radio value="pdf">PDF 上传</Radio>
                             <Radio value="富文本">手动输入</Radio>
@@ -172,7 +165,7 @@ export default function KnowledgeCreation() {
                     {mode &&
                         (
                             <>
-                                <Form.Item label="编辑业务" field="business" rules={[{ required: true, message: '请选择所属业务' }]}>
+                                <Form.Item label="编辑业务" field="business">
                                     <Select placeholder="请选择业务">
                                         <Select.Option value="经营成长">经营成长</Select.Option>
                                         <Select.Option value="招商入驻">招商入驻</Select.Option>
@@ -181,7 +174,7 @@ export default function KnowledgeCreation() {
                                 </Form.Item>
 
                                 {isShowSceneSelectCol && (
-                                    <Form.Item label="编辑场景" field="scene" rules={[{ required: true, message: '请选择所属场景' }]}>
+                                    <Form.Item label="编辑场景" field="scene">
                                         <Select placeholder="请选择场景">
                                             <Select.Option value="入驻与退出">入驻与退出</Select.Option>
                                             <Select.Option value="保证金管理">保证金管理</Select.Option>
@@ -193,7 +186,6 @@ export default function KnowledgeCreation() {
                                     <>
                                         <Form.Item label="新文件上传"
                                             field="files"
-                                            rules={[{ required: true, message: '请上传一个PDF文件' }]}
                                             getValueFromEvent={(files) => files}
                                         >
                                             <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
@@ -243,32 +235,19 @@ export default function KnowledgeCreation() {
                                             )}
                                         </Form.Item>
 
-                                        <Form.Item label="文件标题" field="title" rules={[{ required: true, message: '请填写文件标题' }]}>
+                                        <Form.Item label="编辑文档标题" field="title">
                                             <Input placeholder="建议和上传的文件名一致" />
-                                        </Form.Item>
-
-                                        <Form.Item
-                                            label="引用链接"
-                                            extra="没有则留空"
-                                            field='attachedLinks'
-                                        >
-                                            <Input
-                                                placeholder="填写文件在抖音商家知识中心对应的原文链接"
-                                                value={''}
-                                                onChange={(val) => handleLinkChange(val)}
-                                                style={{ width: '100%' }}
-                                            />
                                         </Form.Item>
                                     </>
                                 )}
 
                                 {mode === '富文本' && (
                                     <>
-                                        <Form.Item label="文档标题" field="title" rules={[{ required: true, message: '请输入标题' }]}>
+                                        <Form.Item label="编辑文档标题" field="title">
                                             <Input placeholder="输入标题" />
                                         </Form.Item>
 
-                                        <Form.Item label="富文本内容" field='text-content' rules={[{ required: true, message: '请输入内容' }]}>
+                                        <Form.Item label="新富文本内容" field='text-content'>
                                             <RichTextEditor
                                                 value={editorContent}
                                                 onChange={setEditorContent}

@@ -21,21 +21,21 @@ interface BaseElement {
 }
 
 type CustomElement = BaseElement &
-  (| { type: 'paragraph' }
-  | { type: 'block-quote' }
-  | { type: 'bulleted-list' }
-  | { type: 'numbered-list' }
-  | { type: 'list-item' }
-  | { type: 'heading-one' }
-  | { type: 'heading-two' }
-  | { type: 'heading-three' }
-  | { type: 'horizontal-rule' }
-  | { type: 'link'; url: string });
+    (| { type: 'paragraph' }
+        | { type: 'block-quote' }
+        | { type: 'bulleted-list' }
+        | { type: 'numbered-list' }
+        | { type: 'list-item' }
+        | { type: 'heading-one' }
+        | { type: 'heading-two' }
+        | { type: 'heading-three' }
+        | { type: 'horizontal-rule' }
+        | { type: 'link'; url: string });
 
-type FormattedText = { 
-    text: string; 
-    bold?: boolean; 
-    italic?: boolean; 
+type FormattedText = {
+    text: string;
+    bold?: boolean;
+    italic?: boolean;
     underline?: boolean;
     strikethrough?: boolean;
 };
@@ -164,7 +164,7 @@ interface RichTextReaderProps {
     /** Slate JSON 数据；支持单页 `Descendant[]` 或 多页 `Descendant[][]` */
     value: Descendant[] | Descendant[][];
     /** 是否显示预览标题栏 */
-    showHeader?: boolean;
+    showNavBtn?: boolean;
     /** 自定义样式 */
     style?: React.CSSProperties;
     /** 自定义类名 */
@@ -175,11 +175,11 @@ interface RichTextReaderProps {
  * 富文本预览组件 - 只读模式
  * 接收 Slate JSON 数据并渲染为不可编辑的文档
  */
-const RichTextReader: FC<RichTextReaderProps> = ({ 
-    value, 
-    style, 
+const RichTextReader: FC<RichTextReaderProps> = ({
+    value,
+    style,
     className,
-    showHeader = true,
+    showNavBtn = true,
 }) => {
     const editorRef = useRef<Editor | null>(null);
     const [editor] = useState(() => {
@@ -225,15 +225,16 @@ const RichTextReader: FC<RichTextReaderProps> = ({
     }
 
     return (
-        <div 
+        <div
             className={`${styles.readerContainer} ${className || ''}`}
             style={style}
         >
-            {showHeader && (
-                <>
-                    <div className={styles.header}>
-                        <Space className={styles.headerContent}>
-                            <Space className={styles.navGroup}>
+
+            <div className={styles.header}>
+                <Space className={styles.headerContent}>
+                    <Space className={styles.navGroup}>
+                        {showNavBtn && (
+                            <>
                                 <Button
                                     onClick={() => setCurrentPageIndex(p => Math.max(0, p - 1))}
                                     disabled={currentPageIndex === 0}
@@ -251,23 +252,25 @@ const RichTextReader: FC<RichTextReaderProps> = ({
                                 >
                                     下一页<IconRight />
                                 </Button>
-                                <Typography.Text className={styles.pageInfo}>
-                                    第 {currentPageIndex + 1} / {pages.length} 页
-                                </Typography.Text>
-                            </Space>
-                            <Typography.Text className={styles.charCount}>
-                                字符数: {charCount}
-                            </Typography.Text>
-                        </Space>
-                    </div>
-                    <Divider style={{ margin: 0 }} />
-                </>
-            )}
-            
-            <Slate 
+                            </>
+                        )}
+                        <Typography.Text className={styles.pageInfo}>
+                            第 {currentPageIndex + 1} / {pages.length} 页
+                        </Typography.Text>
+                    </Space>
+
+                    <Typography.Text className={styles.charCount}>
+                        字符数: {charCount}
+                    </Typography.Text>
+                </Space>
+            </div>
+            <Divider style={{ margin: 0 }} />
+
+
+            <Slate
                 key={currentPageIndex}
-                editor={editor} 
-                initialValue={pages[currentPageIndex] || [{ type: 'paragraph', children: [{ text: '' }] }] }
+                editor={editor}
+                initialValue={pages[currentPageIndex] || [{ type: 'paragraph', children: [{ text: '' }] }]}
             >
                 {/* 可编辑区域 - 只读模式 */}
                 <div className={styles.contentWrapper}>

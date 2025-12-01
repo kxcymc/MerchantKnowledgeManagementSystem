@@ -21,7 +21,6 @@ export default function KnowledgeCreation() {
     const [form] = Form.useForm();
     const [mode, setMode] = useState<'pdf' | '富文本' | ''>('');
     const [fileList, setFileList] = useState<UploadItem[]>([]);
-    const [fileLinks, setFileLinks] = useState<Record<string, string>>({});
     const [selectedFile, setSelectedFile] = useState<string>('');
     const [isShowSceneSelectCol, setIsShowSceneSelectCol] = useState(false);
     const [editorContent, setEditorContent] = useState<Descendant[]>([
@@ -41,7 +40,7 @@ export default function KnowledgeCreation() {
         if(sceneName){
             form.setFieldValue('scene', sceneName)
         }
-    },[])
+    },[form, businessName, sceneName])
 
 
 
@@ -51,11 +50,6 @@ export default function KnowledgeCreation() {
 
     const handleRemoveFile = (uid: string) => {
         setFileList((prev) => prev.filter((item) => item.uid !== uid));
-        setFileLinks((prev) => {
-            const newLinks = { ...prev };
-            delete newLinks[uid];
-            return newLinks;
-        });
         if (selectedFile === uid) {
             setSelectedFile('');
         }
@@ -73,18 +67,10 @@ export default function KnowledgeCreation() {
             ),
             onOk: () => {
                 setFileList([]);
-                setFileLinks({});
                 setSelectedFile('');
                 Message.success('已清空所有文件');
             },
         });
-    };
-
-    const handleLinkChange = (uid: string, value: string) => {
-        setFileLinks((prev) => ({
-            ...prev,
-            [uid]: value,
-        }));
     };
 
     interface Payload {
@@ -122,7 +108,6 @@ export default function KnowledgeCreation() {
                 payload.files = fileList.map((f) => ({
                     name: f.name || (f.originFile && f.originFile.name) || 'unknown',
                     size: (f.originFile && (f.originFile as File).size) || 0,
-                    link: fileLinks[f.uid] || '',
                 }));
             }
 
@@ -133,14 +118,6 @@ export default function KnowledgeCreation() {
             Message.error('请检查表单必填项');
         }
     };
-
-    const fileOptions = [
-        { label: '选择文件', value: '' },
-        ...fileList.map(file => ({
-            label: file.name || (file.originFile && file.originFile.name) || 'unknown',
-            value: file.uid
-        }))
-    ];
 
     const handleValuesChange = () => {
         if (form.getFieldValue('business') === '招商入驻')
@@ -269,42 +246,6 @@ export default function KnowledgeCreation() {
                                         (<Form.Item label="文件标题" field="title" rules={[{ required: true, message: '请填写文件标题' }]}>
                                             <Input placeholder="建议和上传的文件名一致" />
                                         </Form.Item>)
-                                    }
-
-                                    {fileList.length > 0 &&
-                                        (
-                                            <Form.Item
-                                                label="引用链接"
-                                                extra="选择文件并填写对应的引用链接，没有则留空"
-                                                field='attachedLinks'
-                                            >
-                                                <div style={{ display: 'flex', gap: 12 }}>
-                                                    <Select
-                                                        placeholder="选择文件"
-                                                        value={selectedFile}
-                                                        onChange={(val) => setSelectedFile(val)}
-                                                        style={{ width: 200 }}
-                                                    >
-                                                        {fileOptions.map(option => (
-                                                            <Select.Option key={option.value} value={option.value}>
-                                                                {option.label}
-                                                            </Select.Option>
-                                                        ))}
-                                                    </Select>
-                                                    <Input
-                                                        placeholder="填写文件在抖音商家知识中心对应的原文链接"
-                                                        value={selectedFile ? fileLinks[selectedFile] || '' : ''}
-                                                        onChange={(val) => {
-                                                            if (selectedFile) {
-                                                                handleLinkChange(selectedFile, val);
-                                                            }
-                                                        }}
-                                                        disabled={!selectedFile}
-                                                        style={{ flex: 1 }}
-                                                    />
-                                                </div>
-                                            </Form.Item>
-                                        )
                                     }
                                 </>
                             )}
