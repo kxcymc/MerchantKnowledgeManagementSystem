@@ -39,7 +39,7 @@ const RichTextPreview = () => {
     };
     return (
         <div className={styles.wrapper}>
-            <Button key="back" type="outline" onClick={handleBack}>
+            <Button key="back" type="outline" onClick={handleBack} className={styles.backBtn}>
                 返回
             </Button>
             <RichTextReader value={RICH_TEXT_EXAMPLE_DATA}></RichTextReader>

@@ -1,0 +1,54 @@
+.loading {
+    padding: 12px;
+    color: var(--color-text-3);
+}
+
+.readerContainer {
+    margin: 20px;
+    border: 1px solid var(--color-border-4);
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--color-bg-2);
+
+    .header {
+        padding: 8px 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
+        .headerContent {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+
+            .navGroup {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+            }
+
+            .pageInfo {
+                margin-left: 8px;
+                color: var(--color-text-2);
+            }
+
+            .charCount {
+                color: var(--color-text-3);
+            }
+        }
+    }
+
+    .contentWrapper {
+        min-height: 200px;
+        flex: 1;
+        overflow: auto;
+
+        .editableArea {
+            min-height: 176px;
+            background-color: var(--color-bg-2);
+            padding: 12px;
+        }
+    }
+}

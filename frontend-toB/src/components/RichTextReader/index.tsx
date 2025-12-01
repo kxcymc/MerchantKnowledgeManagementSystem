@@ -1,9 +1,13 @@
-import React, { useCallback, FC, useState, useEffect, useRef } from 'react';
-import { createEditor, Descendant, Editor, } from 'slate';
+import React, { useCallback, FC, useState, useEffect, useRef, useMemo } from 'react';
+import { createEditor, Descendant, Editor } from 'slate';
 import { Slate, Editable, withReact, RenderElementProps, RenderLeafProps } from 'slate-react';
 import { withHistory } from 'slate-history';
+import { Button, Space, Typography, Divider } from '@arco-design/web-react';
 
-// 复用编辑器的类型定义
+import styles from './style/index.module.less';
+import { IconLeft, IconRight } from '@arco-design/web-react/icon';
+
+// 复用编辑器的类型定义（保持不变）
 type TextAlign = 'left' | 'center' | 'right';
 
 interface BaseElement {
@@ -45,7 +49,6 @@ declare module 'slate' {
     }
 }
 
-// 复用渲染组件
 const ElementComponent: FC<RenderElementProps> = ({ attributes, children, element }) => {
     const customElement = element as CustomElement;
 
@@ -158,8 +161,8 @@ const LeafComponent: FC<RenderLeafProps> = ({ attributes, children, leaf }) => {
 
 // 预览组件 props
 interface RichTextReaderProps {
-    /** Slate JSON 数据 */
-    value: Descendant[];
+    /** Slate JSON 数据；支持单页 `Descendant[]` 或 多页 `Descendant[][]` */
+    value: Descendant[] | Descendant[][];
     /** 是否显示预览标题栏 */
     showHeader?: boolean;
     /** 自定义样式 */
@@ -175,7 +178,8 @@ interface RichTextReaderProps {
 const RichTextReader: FC<RichTextReaderProps> = ({ 
     value, 
     style, 
-    className 
+    className,
+    showHeader = true,
 }) => {
     const editorRef = useRef<Editor | null>(null);
     const [editor] = useState(() => {
@@ -184,6 +188,29 @@ const RichTextReader: FC<RichTextReaderProps> = ({
         return ed;
     });
     const [isReady, setIsReady] = useState(false);
+
+    const pages: Descendant[][] = useMemo(() => {
+        return Array.isArray(value) && value.length > 0 && Array.isArray(value[0])
+            ? (value as Descendant[][])
+            : [(value as Descendant[]) || [{ type: 'paragraph', children: [{ text: '' }] }]];
+    }, [value]);
+    const [currentPageIndex, setCurrentPageIndex] = useState(0);
+
+    const calculateTextLength = useCallback((content: Descendant[]): number => {
+        return content.reduce((count, node) => {
+            // Text node
+            if ('text' in node && typeof node.text === 'string') return count + node.text.length;
+            // Element node
+            if ('children' in node && Array.isArray(node.children)) return count + calculateTextLength(node.children);
+            return count;
+        }, 0);
+    }, []);
+
+    const [charCount, setCharCount] = useState(() => calculateTextLength(pages[currentPageIndex] || []));
+
+    useEffect(() => {
+        setCharCount(calculateTextLength(pages[currentPageIndex] || []));
+    }, [pages, currentPageIndex, calculateTextLength]);
 
     const renderElement = useCallback((props: RenderElementProps) => <ElementComponent {...props} />, []);
     const renderLeaf = useCallback((props: RenderLeafProps) => <LeafComponent {...props} />, []);
@@ -194,29 +221,61 @@ const RichTextReader: FC<RichTextReaderProps> = ({
     }, []);
 
     if (!isReady) {
-        return <div style={{ padding: 12, color: 'var(--color-text-3)' }}>加载预览中...</div>;
+        return <div className={styles.loading}>加载预览中...</div>;
     }
 
     return (
         <div 
-            className={className}
-            style={{ 
-                border: '1px solid var(--color-border-2)', 
-                borderRadius: 4, 
-                display: 'flex', 
-                flexDirection: 'column',
-                backgroundColor: 'var(--color-bg-2)',
-                ...style 
-            }}
+            className={`${styles.readerContainer} ${className || ''}`}
+            style={style}
         >
-            <Slate editor={editor} initialValue={value}>
+            {showHeader && (
+                <>
+                    <div className={styles.header}>
+                        <Space className={styles.headerContent}>
+                            <Space className={styles.navGroup}>
+                                <Button
+                                    onClick={() => setCurrentPageIndex(p => Math.max(0, p - 1))}
+                                    disabled={currentPageIndex === 0}
+                                    size="large"
+                                    type='primary'
+                                    icon={<IconLeft />}
+                                >
+                                    上一页
+                                </Button>
+                                <Button
+                                    onClick={() => setCurrentPageIndex(p => Math.min(pages.length - 1, p + 1))}
+                                    disabled={currentPageIndex >= pages.length - 1}
+                                    size="large"
+                                    type='primary'
+                                >
+                                    下一页<IconRight />
+                                </Button>
+                                <Typography.Text className={styles.pageInfo}>
+                                    第 {currentPageIndex + 1} / {pages.length} 页
+                                </Typography.Text>
+                            </Space>
+                            <Typography.Text className={styles.charCount}>
+                                字符数: {charCount}
+                            </Typography.Text>
+                        </Space>
+                    </div>
+                    <Divider style={{ margin: 0 }} />
+                </>
+            )}
+            
+            <Slate 
+                key={currentPageIndex}
+                editor={editor} 
+                initialValue={pages[currentPageIndex] || [{ type: 'paragraph', children: [{ text: '' }] }] }
+            >
                 {/* 可编辑区域 - 只读模式 */}
-                <div style={{ minHeight: 200, flex: 1, overflow: 'auto' }}>
+                <div className={styles.contentWrapper}>
                     <Editable
                         renderElement={renderElement}
                         renderLeaf={renderLeaf}
                         readOnly={true}
-                        style={{ minHeight: 176, backgroundColor: 'var(--color-bg-2)' }}
+                        className={styles.editableArea}
                     />
                 </div>
             </Slate>

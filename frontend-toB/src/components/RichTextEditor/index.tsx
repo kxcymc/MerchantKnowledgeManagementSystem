@@ -1,7 +1,7 @@
-import React, { useCallback, FC, useState, useEffect, useRef } from 'react';
+import React, { useCallback, FC, useState, useEffect, useMemo } from 'react';
 import { createEditor, Descendant, Editor, Element, Text, Transforms } from 'slate';
 import { Slate, Editable, withReact, RenderElementProps, RenderLeafProps } from 'slate-react';
-import { Button, Tooltip, Space, Divider, Modal, Input, InputNumber, Drawer } from '@arco-design/web-react';
+import { Button, Tooltip, Space, Divider, Modal, Input, InputNumber, Drawer, Message } from '@arco-design/web-react';
 import {
     IconBold,
     IconItalic,
@@ -19,17 +19,18 @@ import {
     IconLink,
     IconUndo,
     IconRedo,
+    IconSettings,
+    IconLeft,
+    IconRight,
+    IconPlus,
+    IconDelete,
 } from '@arco-design/web-react/icon';
 import { useSlate } from 'slate-react';
 import { withHistory } from 'slate-history';
 
-
 // --- 类型定义 ---
-
-// 文本对齐类型
 type TextAlign = 'left' | 'center' | 'right';
 
-// 基础块级元素类型
 interface BaseElement {
     type: string;
     align?: TextAlign;
@@ -40,44 +41,22 @@ interface BaseElement {
     children: CustomText[];
 }
 
-/// 为 Slate 元素和文本定义类型，以便 TypeScript 更好地工作
-type CustomElement = BaseElement &
-  (| {
-      type: 'paragraph';
-    }
-  | {
-      type: 'block-quote';
-    }
-  | {
-      type: 'bulleted-list';
-    }
-  | {
-      type: 'numbered-list';
-    }
-  | {
-      type: 'list-item';
-    }
-  | {
-      type: 'heading-one';
-    }
-  | {
-      type: 'heading-two';
-    }
-  | {
-      type: 'heading-three';
-    }
-  | {
-      type: 'horizontal-rule';
-    }
-  | {
-      type: 'link';
-      url: string;
-    });
+export type CustomElement = BaseElement &
+    (| { type: 'paragraph' }
+        | { type: 'block-quote' }
+        | { type: 'bulleted-list' }
+        | { type: 'numbered-list' }
+        | { type: 'list-item' }
+        | { type: 'heading-one' }
+        | { type: 'heading-two' }
+        | { type: 'heading-three' }
+        | { type: 'horizontal-rule' }
+        | { type: 'link'; url: string });
 
-type FormattedText = { 
-    text: string; 
-    bold?: boolean; 
-    italic?: boolean; 
+type FormattedText = {
+    text: string;
+    bold?: boolean;
+    italic?: boolean;
     underline?: boolean;
     strikethrough?: boolean;
 };
@@ -90,7 +69,7 @@ declare module 'slate' {
     }
 }
 
-// 默认值，当编辑器为空时
+// 默认值
 const initialValue: Descendant[] = [
     {
         type: 'paragraph',
@@ -98,27 +77,22 @@ const initialValue: Descendant[] = [
     },
 ];
 
-// --- 工具函数 ---
+// 页面设置默认值 - 移除宽高设置
+const DEFAULT_PAGE_SETTINGS = {
+    marginTop: 20,
+    marginBottom: 20,
+    marginLeft: 20,
+    marginRight: 20,
+};
 
-// 元素类型
+// --- 工具函数 ---
 const LIST_TYPES = ['numbered-list', 'bulleted-list'];
 const TEXT_ALIGN_TYPES: TextAlign[] = ['left', 'center', 'right'];
 
-/**
- * 切换块级元素类型（如段落、列表、）
- * @param editor Slate 编辑器实例
- * @param format 要切换到的块级格式
- */
 const toggleBlock = (editor: Editor, format: string) => {
     const isAlignFormat = TEXT_ALIGN_TYPES.includes(format as TextAlign);
-
-    const isActive = isBlockActive(
-        editor,
-        format,
-        isAlignFormat ? 'align' : 'type'
-    );
+    const isActive = isBlockActive(editor, format, isAlignFormat ? 'align' : 'type');
     const isList = LIST_TYPES.includes(format);
-    const isHeading = format.startsWith('heading-');
 
     Transforms.unwrapNodes(editor, {
         match: n =>
@@ -131,13 +105,10 @@ const toggleBlock = (editor: Editor, format: string) => {
 
     let newProperties: Partial<CustomElement>;
     if (isAlignFormat) {
-        newProperties = {
-            align: isActive ? undefined : (format as TextAlign),
-        };
+        newProperties = { align: isActive ? undefined : (format as TextAlign) };
     } else {
         newProperties = {
             type: isActive ? 'paragraph' : isList ? 'list-item' : (format as CustomElement['type']),
-            align: isHeading || format === 'block-quote' ? undefined : undefined,
         };
     }
 
@@ -149,14 +120,8 @@ const toggleBlock = (editor: Editor, format: string) => {
     }
 };
 
-/**
- * 切换文本样式（如加粗、斜体）
- * @param editor Slate 编辑器实例
- * @param format 要切换的文本格式
- */
 const toggleMark = (editor: Editor, format: keyof FormattedText) => {
     const isActive = isMarkActive(editor, format);
-
     if (isActive) {
         Editor.removeMark(editor, format);
     } else {
@@ -164,16 +129,9 @@ const toggleMark = (editor: Editor, format: keyof FormattedText) => {
     }
 };
 
-/**
- * 检查块级元素是否处于激活状态
- * @param editor Slate 编辑器实例
- * @param format 要检查的块级格式
- * @param blockType 属性名，默认为 'type'
- */
 const isBlockActive = (editor: Editor, format: string, blockType: 'type' | 'align' = 'type') => {
     const { selection } = editor;
     if (!selection) return false;
-
     const [match] = Array.from(
         Editor.nodes(editor, {
             at: Editor.unhangRange(editor, selection),
@@ -183,24 +141,14 @@ const isBlockActive = (editor: Editor, format: string, blockType: 'type' | 'alig
                 (n as CustomElement)[blockType as keyof CustomElement] === format,
         })
     );
-
     return !!match;
 };
 
-/**
- * 检查文本样式是否处于激活状态
- * @param editor Slate 编辑器实例
- * @param format 要检查的文本格式
- */
 const isMarkActive = (editor: Editor, format: keyof FormattedText) => {
     const marks = Editor.marks(editor);
-
     return marks ? marks[format] === true : false;
 };
 
-/**
- * 插入超链接
- */
 const insertLink = (editor: Editor, url: string) => {
     if (Editor.string(editor, [])) {
         Transforms.insertNodes(editor, {
@@ -211,19 +159,18 @@ const insertLink = (editor: Editor, url: string) => {
     }
 };
 
-/**
- * 插入水平分割线
- */
 const insertHorizontalRule = (editor: Editor) => {
-    Transforms.insertNodes(editor, {
+    const ruleNode: CustomElement = {
         type: 'horizontal-rule',
         children: [{ text: '' }],
-    });
+    };
+    const paragraphNode: CustomElement = {
+        type: 'paragraph',
+        children: [{ text: '' }],
+    };
+    Transforms.insertNodes(editor, [ruleNode, paragraphNode]);
 };
 
-/**
- * 计算文本总数
- */
 const calculateTextLength = (content: Descendant[]): number => {
     return content.reduce((count, node) => {
         if (Text.isText(node)) {
@@ -237,7 +184,6 @@ const calculateTextLength = (content: Descendant[]): number => {
 };
 
 // --- 工具栏按钮组件 ---
-
 interface MarkButtonProps {
     format: keyof FormattedText;
     icon: React.ReactNode;
@@ -245,12 +191,8 @@ interface MarkButtonProps {
 }
 
 const MarkButton: FC<MarkButtonProps> = ({ format, icon, label }) => {
-    // 使用 useSlate 获取当前编辑器上下文
     const editor = useSlate();
-    
-    // 在渲染时实时计算 isActive
     const isActive = isMarkActive(editor, format);
-
     return (
         <Tooltip content={label}>
             <Button
@@ -273,16 +215,9 @@ interface BlockButtonProps {
 }
 
 const BlockButton: FC<BlockButtonProps> = ({ format, icon, label }) => {
-    // 使用 useSlate 获取当前编辑器上下文
     const editor = useSlate();
-    
     const isAlignFormat = TEXT_ALIGN_TYPES.includes(format as TextAlign);
-    const isActive = isBlockActive(
-        editor,
-        format,
-        isAlignFormat ? 'align' : 'type'
-    );
-
+    const isActive = isBlockActive(editor, format, isAlignFormat ? 'align' : 'type');
     return (
         <Tooltip content={label}>
             <Button
@@ -298,12 +233,10 @@ const BlockButton: FC<BlockButtonProps> = ({ format, icon, label }) => {
     );
 };
 
-// 超链接按钮
 const LinkButton: FC = () => {
     const editor = useSlate();
     const [visible, setVisible] = useState(false);
     const [url, setUrl] = useState('');
-
     const handleInsertLink = () => {
         if (url.trim()) {
             insertLink(editor, url);
@@ -311,7 +244,6 @@ const LinkButton: FC = () => {
             setVisible(false);
         }
     };
-
     return (
         <>
             <Tooltip content="插入链接">
@@ -329,7 +261,7 @@ const LinkButton: FC = () => {
                 onCancel={() => setVisible(false)}
             >
                 <Input
-                    placeholder="请输入链接地址 (如: https://example.com)"
+                    placeholder="请输入链接地址 (如: https://example.com )"
                     value={url}
                     onChange={setUrl}
                     onPressEnter={handleInsertLink}
@@ -339,10 +271,8 @@ const LinkButton: FC = () => {
     );
 };
 
-// 水平分割线按钮
 const HorizontalRuleButton: FC = () => {
     const editor = useSlate();
-
     return (
         <Tooltip content="插入分割线">
             <Button
@@ -359,7 +289,6 @@ const HorizontalRuleButton: FC = () => {
     );
 };
 
-// 排版设置按钮
 const FormattingButton: FC = () => {
     const editor = useSlate();
     const [drawerVisible, setDrawerVisible] = useState(false);
@@ -369,7 +298,6 @@ const FormattingButton: FC = () => {
         textIndent: 0,
         letterSpacing: 0,
     });
-
     const handleApplyFormatting = () => {
         Transforms.setNodes<CustomElement>(
             editor,
@@ -383,7 +311,6 @@ const FormattingButton: FC = () => {
         );
         setDrawerVisible(false);
     };
-
     return (
         <>
             <Tooltip content="排版设置">
@@ -449,12 +376,83 @@ const FormattingButton: FC = () => {
     );
 };
 
-// --- 渲染组件 ---
+// 修改页面设置组件，移除宽高设置
+const PageSettingsButton: FC<{ settings: typeof DEFAULT_PAGE_SETTINGS; onChange: (settings: typeof DEFAULT_PAGE_SETTINGS) => void }> = ({ settings, onChange }) => {
+    const [drawerVisible, setDrawerVisible] = useState(false);
+    const [localSettings, setLocalSettings] = useState(settings);
 
-// 渲染块级元素（如段落、列表项、）
+    useEffect(() => {
+        setLocalSettings(settings);
+    }, [settings]);
+
+    const handleApply = () => {
+        onChange(localSettings);
+        setDrawerVisible(false);
+    };
+
+    return (
+        <>
+            <Tooltip content="页面设置">
+                <Button
+                    size="small"
+                    type="default"
+                    icon={<IconSettings />}
+                    onClick={() => setDrawerVisible(true)}
+                />
+            </Tooltip>
+            <Drawer
+                title="页面边距设置"
+                placement="right"
+                onOk={handleApply}
+                onCancel={() => setDrawerVisible(false)}
+                visible={drawerVisible}
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div>
+                        <div style={{ marginBottom: 8 }}>上边距 (px)</div>
+                        <InputNumber
+                            min={0}
+                            max={100}
+                            value={localSettings.marginTop}
+                            onChange={v => setLocalSettings({ ...localSettings, marginTop: v || DEFAULT_PAGE_SETTINGS.marginTop })}
+                        />
+                    </div>
+                    <div>
+                        <div style={{ marginBottom: 8 }}>下边距 (px)</div>
+                        <InputNumber
+                            min={0}
+                            max={100}
+                            value={localSettings.marginBottom}
+                            onChange={v => setLocalSettings({ ...localSettings, marginBottom: v || DEFAULT_PAGE_SETTINGS.marginBottom })}
+                        />
+                    </div>
+                    <div>
+                        <div style={{ marginBottom: 8 }}>左边距 (px)</div>
+                        <InputNumber
+                            min={0}
+                            max={100}
+                            value={localSettings.marginLeft}
+                            onChange={v => setLocalSettings({ ...localSettings, marginLeft: v || DEFAULT_PAGE_SETTINGS.marginLeft })}
+                        />
+                    </div>
+                    <div>
+                        <div style={{ marginBottom: 8 }}>右边距 (px)</div>
+                        <InputNumber
+                            min={0}
+                            max={100}
+                            value={localSettings.marginRight}
+                            onChange={v => setLocalSettings({ ...localSettings, marginRight: v || DEFAULT_PAGE_SETTINGS.marginRight })}
+                        />
+                    </div>
+                </div>
+            </Drawer>
+        </>
+    );
+};
+
+// --- 渲染组件 ---
 const ElementComponent: FC<RenderElementProps> = ({ attributes, children, element }) => {
     const customElement = element as CustomElement;
-
     const blockStyle = {
         lineHeight: customElement.lineHeight,
         marginBottom: customElement.marginBottom ? `${customElement.marginBottom}em` : undefined,
@@ -542,73 +540,138 @@ const ElementComponent: FC<RenderElementProps> = ({ attributes, children, elemen
     }
 };
 
-// 渲染文本节点（如加粗、斜体）
 const LeafComponent: FC<RenderLeafProps> = ({ attributes, children, leaf }) => {
-    if (leaf.bold) {
-        children = <strong>{children}</strong>;
-    }
-
-    if (leaf.italic) {
-        children = <em>{children}</em>;
-    }
-
-    if (leaf.underline) {
-        children = <u>{children}</u>;
-    }
-
-    if (leaf.strikethrough) {
-        children = <s>{children}</s>;
-    }
-
+    if (leaf.bold) children = <strong>{children}</strong>;
+    if (leaf.italic) children = <em>{children}</em>;
+    if (leaf.underline) children = <u>{children}</u>;
+    if (leaf.strikethrough) children = <s>{children}</s>;
     return <span {...attributes}>{children}</span>;
 };
 
 // --- 主组件 ---
-
 interface RichTextEditorProps {
-    /** 编辑器内容（JSON 格式），用于父组件的表单控制 */
     value?: Descendant[];
-    /** 内容变化时的回调函数 */
     onChange?: (value: Descendant[]) => void;
 }
 
 const RichTextEditor: FC<RichTextEditorProps> = ({ value, onChange }) => {
-    const editorRef = useRef<Editor | null>(null);
-    const [editor] = useState(() => {
+    // 状态管理：pages 存储所有页面的数据，Descendant[][] 结构
+    const [pages, setPages] = useState<Descendant[][]>(() => value && value.length > 0 ? [value] : [initialValue]);
+    const [currentPageIndex, setCurrentPageIndex] = useState(0);
+
+    // 为每一页创建一个独立的 editor 实例，依赖于 currentPageIndex，保证历史记录不混淆
+    const editor = useMemo(() => {
         const ed = withHistory(withReact(createEditor()));
-        editorRef.current = ed;
+        const { isVoid } = ed;
+        ed.isVoid = (element) => {
+            return element.type === 'horizontal-rule' || isVoid(element);
+        };
         return ed;
-    });
+    }, []);
+
     const [charCount, setCharCount] = useState(0);
     const [isReady, setIsReady] = useState(false);
+    const [pageSettings, setPageSettings] = useState(DEFAULT_PAGE_SETTINGS);
 
     const renderElement = useCallback((props: RenderElementProps) => <ElementComponent {...props} />, []);
     const renderLeaf = useCallback((props: RenderLeafProps) => <LeafComponent {...props} />, []);
 
+    // 处理当前页面的内容变更
     const handleChange = (newValue: Descendant[]) => {
+        const newPages = [...pages];
+        newPages[currentPageIndex] = newValue;
+        setPages(newPages);
         setCharCount(calculateTextLength(newValue));
+        
+        // 简单触发外部 onChange，回传当前页数据（如果需要回传所有页，需要修改 Props 定义）
         if (onChange && typeof onChange === 'function') {
             onChange(newValue);
         }
     };
 
+    // 切换上一页
+    const handlePrevPage = () => {
+        if (currentPageIndex > 0) {
+            setCurrentPageIndex(prev => prev - 1);
+        }
+    };
+
+    // 切换下一页
+    const handleNextPage = () => {
+        if (currentPageIndex < pages.length - 1) {
+            setCurrentPageIndex(prev => prev + 1);
+        }
+    };
+
+    // 新增页面
+    const handleAddPage = () => {
+        setPages(prev => [...prev, initialValue]);
+        setCurrentPageIndex(pages.length); // 切换到新页面
+        Message.success('已新增页面');
+    };
+
+    // 删除当前页
+    const handleDeletePage = () => {
+        if (pages.length <= 1) {
+            Message.warning('至少保留一页');
+            return;
+        }
+        Modal.confirm({
+            title: '确认删除',
+            content: `确定要删除第 ${currentPageIndex + 1} 页吗？此操作无法撤销。`,
+            onOk: () => {
+                const newPages = pages.filter((_, index) => index !== currentPageIndex);
+                setPages(newPages);
+                // 如果删除的是最后一页，向前移动；否则停留在当前索引（即原来的下一页）
+                if (currentPageIndex >= newPages.length) {
+                    setCurrentPageIndex(newPages.length - 1);
+                } else {
+                    // 强制刷新 editor 状态
+                    // 由于 key={currentPageIndex} 可能没变，但内容变了，这里 index 没变但内容变了
+                    // 依赖 Slate 的 initialValue 变化通常需要 key 变化或者重置
+                    // 在这种情况下，我们可能需要临时重置一下 index 或者 key 策略
+                }
+                Message.success('页面已删除');
+            }
+        });
+    };
+
     useEffect(() => {
-        // 延迟设置 ready 状态，确保 DOM 已准备好
         const timer = setTimeout(() => setIsReady(true), 100);
         return () => clearTimeout(timer);
     }, []);
+
+    // 更新字符数统计
+    useEffect(() => {
+        const currentContent = pages[currentPageIndex] || initialValue;
+        setCharCount(calculateTextLength(currentContent));
+    }, [pages, currentPageIndex]);
 
     if (!isReady) {
         return <div style={{ border: '1px solid #eee', borderRadius: 4, padding: 12 }}>初始化编辑器...</div>;
     }
 
+    // 修改编辑器样式，改为继承父级宽高
+    const editorStyle: React.CSSProperties = {
+        width: '100%',
+        height: '586px',
+        padding: `${pageSettings.marginTop}px ${pageSettings.marginRight}px ${pageSettings.marginBottom}px ${pageSettings.marginLeft}px`,
+        background: '#fff',
+        boxSizing: 'border-box',
+    };
+
     return (
-        <div style={{ border: '1px solid #eee', borderRadius: 4, display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <Slate editor={editor} initialValue={value?.length > 0 ? value : initialValue} onChange={handleChange}>
+        <div style={{ border: '1px solid #eee', borderRadius: 4, display: 'flex', flexDirection: 'column', height: 'inherit', width:'inherit', overflow: 'hidden' }}>
+            {/* 使用 key 强制重新渲染 Slate 组件，以实现页面切换 */}
+            <Slate 
+                key={currentPageIndex} 
+                editor={editor} 
+                initialValue={pages[currentPageIndex] || initialValue} 
+                onChange={handleChange}
+            >
                 {/* 工具栏 */}
                 <div style={{ padding: 8, borderBottom: '1px solid #f3f3f3', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', overflowY: 'auto' }}>
                     <Space>
-                        {/* 撤销/重做按钮 */}
                         <Tooltip content="撤销 (Cmd+Z)">
                             <Button
                                 size="small"
@@ -634,7 +697,6 @@ const RichTextEditor: FC<RichTextEditorProps> = ({ value, onChange }) => {
                     </Space>
                     <Divider type="vertical" style={{ margin: 0 }} />
                     <Space>
-                        {/* 标题和引用块按钮 */}
                         <BlockButton format="heading-one" icon={<IconH1 />} label="一级标题" />
                         <BlockButton format="heading-two" icon={<IconH2 />} label="二级标题" />
                         <BlockButton format="heading-three" icon={<IconH3 />} label="三级标题" />
@@ -642,7 +704,6 @@ const RichTextEditor: FC<RichTextEditorProps> = ({ value, onChange }) => {
                     </Space>
                     <Divider type="vertical" style={{ margin: 0 }} />
                     <Space>
-                        {/* 文本样式按钮 */}
                         <MarkButton format="bold" icon={<IconBold />} label="加粗" />
                         <MarkButton format="italic" icon={<IconItalic />} label="斜体" />
                         <MarkButton format="underline" icon={<IconUnderline />} label="下划线" />
@@ -650,43 +711,84 @@ const RichTextEditor: FC<RichTextEditorProps> = ({ value, onChange }) => {
                     </Space>
                     <Divider type="vertical" style={{ margin: 0 }} />
                     <Space>
-                        {/* 列表块按钮 */}
                         <BlockButton format="bulleted-list" icon={<IconUnorderedList />} label="无序列表" />
                         <BlockButton format="numbered-list" icon={<IconList />} label="有序列表" />
                     </Space>
                     <Divider type="vertical" style={{ margin: 0 }} />
                     <Space>
-                        {/* 文本对齐按钮 */}
                         <BlockButton format="left" icon={<IconAlignLeft />} label="左对齐" />
                         <BlockButton format="center" icon={<IconAlignCenter />} label="居中" />
                         <BlockButton format="right" icon={<IconAlignRight />} label="右对齐" />
                     </Space>
                     <Divider type="vertical" style={{ margin: 0 }} />
                     <Space>
-                        {/* 排版设置 */}
                         <FormattingButton />
                     </Space>
                     <Divider type="vertical" style={{ margin: 0 }} />
                     <Space>
-                        {/* 链接和分割线 */}
                         <LinkButton />
                         <HorizontalRuleButton />
                     </Space>
-                    <div style={{ marginLeft: 'auto', fontSize: 12, color: '#999' }}>
-                        字符数: <strong>{charCount}</strong>
-                    </div>
+                    <Divider type="vertical" style={{ margin: 0 }} />
+                    <Space>
+                        <PageSettingsButton settings={pageSettings} onChange={setPageSettings} />
+                    </Space>
                 </div>
 
                 {/* 可编辑区域 */}
-                <div style={{ minHeight: 200, padding: 12, flex: 1, overflow: 'auto' }}>
-                    <Editable
-                        renderElement={renderElement}
-                        renderLeaf={renderLeaf}
-                        placeholder="请输入内容..."
-                        spellCheck
-                        autoFocus
-                        style={{ minHeight: 176 }}
-                    />
+                <div style={{ flex: 1, overflow: 'auto', background: '#f5f5f5', padding: '20px' }}>
+                    <div style={editorStyle}>
+                        <Editable
+                            renderElement={renderElement}
+                            renderLeaf={renderLeaf}
+                            placeholder="请输入内容..."
+                            spellCheck
+                            autoFocus
+                        />
+                    </div>
+                </div>
+
+                {/* 底部页面控制栏 */}
+                <div style={{ padding: '8px 16px', borderTop: '1px solid #eee', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff' }}>
+                    <Space>
+                        <Tooltip content="上一页">
+                            <Button 
+                                size="small" 
+                                icon={<IconLeft />} 
+                                onClick={handlePrevPage} 
+                                disabled={currentPageIndex === 0}
+                            />
+                        </Tooltip>
+                        <span style={{ fontSize: 12, fontWeight: 'bold', minWidth: 60, textAlign: 'center' }}>
+                            {currentPageIndex + 1} / {pages.length}
+                        </span>
+                        <Tooltip content="下一页">
+                            <Button 
+                                size="small" 
+                                icon={<IconRight />} 
+                                onClick={handleNextPage} 
+                                disabled={currentPageIndex === pages.length - 1}
+                            />
+                        </Tooltip>
+                        <Divider type="vertical" />
+                        <Tooltip content="新增页面">
+                            <Button size="small" type="primary" icon={<IconPlus />} onClick={handleAddPage}>
+                                新增页
+                            </Button>
+                        </Tooltip>
+                        <Tooltip content="删除当前页">
+                            <Button 
+                                size="small" 
+                                status="danger" 
+                                icon={<IconDelete />} 
+                                onClick={handleDeletePage}
+                                disabled={pages.length <= 1}
+                            />
+                        </Tooltip>
+                    </Space>
+                    <div style={{ fontSize: 12, color: '#999' }}>
+                        字符数: <strong>{charCount}</strong>
+                    </div>
                 </div>
             </Slate>
         </div>
