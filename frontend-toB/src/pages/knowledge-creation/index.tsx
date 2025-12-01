@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     Card,
     Typography,
@@ -13,14 +13,13 @@ import {
 } from '@arco-design/web-react';
 import { IconUpload, IconClose } from '@arco-design/web-react/icon';
 import { UploadItem } from '@arco-design/web-react/es/Upload';
-import { useHistory } from 'react-router-dom';
+import { useHistory, useLocation } from 'react-router-dom';
 import type { Descendant } from 'slate';
 import RichTextEditor from '@/components/RichTextEditor/index';
 
 export default function KnowledgeCreation() {
-    const history = useHistory();
     const [form] = Form.useForm();
-    const [mode, setMode] = useState<'pdf' | '富文本'| ''>('');
+    const [mode, setMode] = useState<'pdf' | '富文本' | ''>('');
     const [fileList, setFileList] = useState<UploadItem[]>([]);
     const [fileLinks, setFileLinks] = useState<Record<string, string>>({});
     const [selectedFile, setSelectedFile] = useState<string>('');
@@ -30,7 +29,21 @@ export default function KnowledgeCreation() {
             type: 'paragraph',
             children: [{ text: '' }],
         },
-    ]); // 存储富文本编辑器内容
+    ]); 
+
+    const history = useHistory();
+    const location = useLocation();
+    const { businessName, sceneName } = Object.fromEntries(new URLSearchParams(location.search));
+    useEffect(()=>{
+        if (businessName){
+            form.setFieldValue('business', businessName)
+        }
+        if(sceneName){
+            form.setFieldValue('scene', sceneName)
+        }
+    },[])
+
+
 
     const onUploadChange = (fl: UploadItem[]) => {
         setFileList(fl);
@@ -158,25 +171,25 @@ export default function KnowledgeCreation() {
                         </Radio.Group>
                     </Form.Item>
 
+                    <Form.Item label="所属业务" field="business" rules={[{ required: true, message: '请选择所属业务' }]}>
+                        <Select placeholder="请选择业务">
+                            <Select.Option value="经营成长">经营成长</Select.Option>
+                            <Select.Option value="招商入驻">招商入驻</Select.Option>
+                            <Select.Option value="资金结算">资金结算</Select.Option>
+                        </Select>
+                    </Form.Item>
+
+                    {isShowSceneSelectCol && (
+                        <Form.Item label="所属场景" field="scene" rules={[{ required: true, message: '请选择所属场景' }]}>
+                            <Select placeholder="请选择场景">
+                                <Select.Option value="入驻与退出">入驻与退出</Select.Option>
+                                <Select.Option value="保证金管理">保证金管理</Select.Option>
+                            </Select>
+                        </Form.Item>
+                    )}
+
                     {mode && (
                         <>
-                            <Form.Item label="所属业务" field="business" rules={[{ required: true, message: '请选择所属业务' }]}>
-                                <Select placeholder="请选择业务">
-                                    <Select.Option value="经营成长">经营成长</Select.Option>
-                                    <Select.Option value="招商入驻">招商入驻</Select.Option>
-                                    <Select.Option value="资金结算">资金结算</Select.Option>
-                                </Select>
-                            </Form.Item>
-
-                            {isShowSceneSelectCol && (
-                                <Form.Item label="所属场景" field="scene" rules={[{ required: true, message: '请选择所属场景' }]}>
-                                    <Select placeholder="请选择场景">
-                                        <Select.Option value="入驻与退出">入驻与退出</Select.Option>
-                                        <Select.Option value="保证金管理">保证金管理</Select.Option>
-                                    </Select>
-                                </Form.Item>
-                            )}
-
                             {mode === 'pdf' && (
                                 <>
                                     <Form.Item label="文件上传"

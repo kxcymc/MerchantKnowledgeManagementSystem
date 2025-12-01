@@ -160,8 +160,7 @@ export default function KnowledgeCreation() {
                         </Button>
                     </Form.Item>
                     <Form.Item label="编辑方式"
-                        extra={(mode && (mode !== fileTypeParam || fileTypeParam !== '富文本'))
-                            ? "选择该方式，将丢弃原文件" : ''}
+                        extra='修改将覆盖原文件'
                         field='type'
                         rules={[{ required: true, message: '请选择一种编辑方式' }]}>
                         <Radio.Group value={mode} onChange={(val) => setMode(val)}>

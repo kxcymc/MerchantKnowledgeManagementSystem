@@ -27,6 +27,7 @@ export default function KnowledgeAll() {
         pageSizeChangeResetCurrent: true,
     });
     const [formParams, setFormParams] = useState({});
+    const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
     const history = useHistory();
 
     const fetchList = async () => {
@@ -58,26 +59,37 @@ export default function KnowledgeAll() {
         fetchList();
     }, [pagination.current, pagination.pageSize, JSON.stringify(formParams)]);
 
-    const handleDelete = async (id: string, title: string) => {
+    const handleBatchDelete = () => {
+        if (selectedRowKeys.length === 0) {
+            Message.warning('请先选择要删除的文件');
+            return;
+        }
+
         const del = async () => {
             try {
-                // const res = await fetch(`/api/knowledge/${id}`, { method: 'DELETE' });
-                // const json = await res.json();
-                // if (json.code === 0) {
-                //     Message.success('删除成功');
-                //     setData((prev) => prev.filter((i) => i.knowledge_id !== id));
-                // } else {
-                //     Message.error('删除失败');
-                // }
+                const deletePromises = selectedRowKeys.map(id => 
+                    fetch(`/api/knowledge/${id}`, { method: 'DELETE' })
+                );
+                const results = await Promise.all(deletePromises);
+                const allSuccess = results.every(res => res.ok);
+                
+                if (allSuccess) {
+                    Message.success(`成功删除 ${selectedRowKeys.length} 个文件`);
+                    setData((prev) => prev.filter((i) => !selectedRowKeys.includes(i.knowledge_id)));
+                    setSelectedRowKeys([]);
+                } else {
+                    Message.error('部分文件删除失败');
+                }
             } catch (err) {
                 Message.error('删除出错');
             }
-        }
+        };
+
         Modal.confirm({
             title: '二次确认',
             content: (
                 <div style={{ textAlign: 'center' }}>
-                    {`确定要删除《${title}》吗？`}
+                    {`确定要删除选中的 ${selectedRowKeys.length} 个文件吗？`}
                 </div>
             ),
             onOk: del,
@@ -161,7 +173,6 @@ export default function KnowledgeAll() {
                 <>
                     <Button type='secondary' onClick={() => previewKnowledge(row.knowledge_id, row.type, row.pdf_url)}>预览</Button>
                     <Button type="text" onClick={() => goEditPage(row.knowledge_id, row.title, row.type)}>编辑</Button>
-                    <Button type="text" status="danger" onClick={() => handleDelete(row.knowledge_id, row.title)}>删除</Button>
                 </>
             ),
         },
@@ -176,6 +187,11 @@ export default function KnowledgeAll() {
                         新建知识
                     </Button>
                 </Space>
+                <Space>
+                    <Button type="outline" status='danger' onClick={handleBatchDelete}>
+                        删除
+                    </Button>
+                </Space>
             </div>
             <Table
                 rowKey="knowledge_id"
@@ -184,6 +200,10 @@ export default function KnowledgeAll() {
                 pagination={pagination}
                 data={data}
                 columns={columns}
+                rowSelection={{
+                    selectedRowKeys,
+                    onChange: (keys) => setSelectedRowKeys(keys as string[]),
+                }}
             />
         </Card>
     );

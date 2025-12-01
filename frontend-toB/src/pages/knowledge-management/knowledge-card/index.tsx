@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Grid, Card, Input, Space, Button, Message,Modal } from '@arco-design/web-react';
+import { Grid, Card, Input, Space, Button, Message, Modal } from '@arco-design/web-react';
 import { IconPlus } from '@arco-design/web-react/icon';
 import KnowledgeCard from './KnowledgeCard';
 import { knowledgeList } from '@/constant';
@@ -42,11 +42,11 @@ const Index: React.FC = () => {
         }))
     }, [businessName, sceneName])
 
-    const goEditPage = (id: number, title: string, type:string) => {
+    const goEditPage = (id: number, title: string, type: string) => {
         history.push(`/knowledge-management/edit?knowledge_id=${id.toString()}&title=${title}&type=${type}`)
     }
 
-    const deleteKnowledge = (id: number, title:string) => {
+    const deleteKnowledge = (id: number, title: string) => {
         const del = async () => {
             try {
                 // const res = await fetch(`/api/knowledge/${id}`, { method: 'DELETE' });
@@ -72,6 +72,17 @@ const Index: React.FC = () => {
         });
     };
 
+    const goCreatePage = () => {
+        if (businessName) {
+            if (sceneName) {
+                history.push(`/knowledge-creation?businessName=${businessName}&sceneName=${sceneName}`)
+            } else {
+                history.push(`/knowledge-creation?businessName=${businessName}`)
+            }
+        } else {
+            history.push(`/knowledge-creation`)
+        }
+    }
 
     return (
         <div className={styles.container} style={{ padding: 24 }}>
@@ -82,7 +93,7 @@ const Index: React.FC = () => {
                         placeholder='输入文档名称'
                     />
                     <Space>
-                        <Button type="primary" icon={<IconPlus />} onClick={() => history.push('/knowledge-creation')}>
+                        <Button type="primary" icon={<IconPlus />} onClick={() => goCreatePage()}>
                             {sceneName ? `从“${sceneName || ''}”新建文档` : `从“${businessName || ''}”新建文档`}
                         </Button>
                     </Space>
