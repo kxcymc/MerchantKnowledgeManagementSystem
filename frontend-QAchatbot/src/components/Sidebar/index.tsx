@@ -150,15 +150,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 />
                 <span className={styles.sessionTitle}>{session.title}</span>
                 {activeSessionId === session.id && (
-                  <Dropdown
-                    droplist={getDropList(session.id)}
-                    position="br"
-                    trigger="click"
-                  >
-                    <IconMore
-                      className={styles.moreIcon}
-                      onClick={(e) => e.stopPropagation()}
-                    />
+                  <Dropdown droplist={getDropList(session.id)} position="br" trigger="click">
+                    <IconMore className={styles.moreIcon} onClick={(e) => e.stopPropagation()} />
                   </Dropdown>
                 )}
               </div>

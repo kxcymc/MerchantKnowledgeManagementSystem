@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Message, MessageRole } from '@/types';
-import logo from "@/assets/logo.png"
+import logo from '@/assets/logo.png';
 import styles from './index.module.scss';
 import { ChatInput } from '@/components/ChatInput';
 import { MOCK_REFERENCES } from '@/constants';
@@ -46,10 +46,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ messages, onSendMessage,
         <h1 className={styles.homeGreeting}>商家您好～ 知识解惑，经营加分！</h1>
 
         <div className={styles.homeInputArea}>
-          <ChatInput inputValue={inputValue}
+          <ChatInput
+            inputValue={inputValue}
             setInputValue={setInputValue}
             handleKeyDown={handleKeyDown}
-            handleSend={handleSend} />
+            handleSend={handleSend}
+          />
         </div>
       </div>
     );
@@ -61,8 +63,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ messages, onSendMessage,
         {messages.map((msg) => (
           <div
             key={msg.message_id}
-            className={`${styles.messageRow} ${msg.role === MessageRole.User ? styles.messageRowUser : styles.messageRowAssistant
-              }`}
+            className={`${styles.messageRow} ${
+              msg.role === MessageRole.User ? styles.messageRowUser : styles.messageRowAssistant
+            }`}
           >
             <div
               className={`${styles.messageContentWrapper} ${msg.role === MessageRole.User ? styles.messageContentWrapperUser : styles.messageContentWrapperAssistant}`}
@@ -86,10 +89,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ messages, onSendMessage,
                   </div>
                 )}
                 <div
-                  className={`${styles.messageBubble} ${msg.role === MessageRole.User
-                    ? styles.messageBubbleUser
-                    : styles.messageBubbleAssistant
-                    }`}
+                  className={`${styles.messageBubble} ${
+                    msg.role === MessageRole.User
+                      ? styles.messageBubbleUser
+                      : styles.messageBubbleAssistant
+                  }`}
                 >
                   {msg.content}
                 </div>
@@ -118,10 +122,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ messages, onSendMessage,
       </div>
 
       <div className={styles.chatInputFixedArea}>
-        <ChatInput minimized inputValue={inputValue}
+        <ChatInput
+          minimized
+          inputValue={inputValue}
           setInputValue={setInputValue}
           handleKeyDown={handleKeyDown}
-          handleSend={handleSend} />
+          handleSend={handleSend}
+        />
       </div>
     </div>
   );

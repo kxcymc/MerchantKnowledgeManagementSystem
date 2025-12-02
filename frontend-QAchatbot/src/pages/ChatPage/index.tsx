@@ -3,12 +3,12 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Sidebar } from '@/components/Sidebar';
 import { ChatWindow } from '@/components/ChatWindow';
 import { Message, MessageRole, ChatSession } from '@/types';
-import { MOCK_SESSIONS, AVATAR_USER, } from '@/constants';
-import { Button, Avatar, Dropdown, } from '@arco-design/web-react';
-import { IconMenu, IconPlus, } from '@arco-design/web-react/icon';
+import { MOCK_SESSIONS, AVATAR_USER } from '@/constants';
+import { Button, Avatar, Dropdown } from '@arco-design/web-react';
+import { IconMenu, IconPlus } from '@arco-design/web-react/icon';
 import styles from './index.module.scss';
-import ToLoginIcon from '@/assets/goToLogin.svg'
-import LogoutIcon from '@/assets/logout.svg'
+import ToLoginIcon from '@/assets/goToLogin.svg';
+import LogoutIcon from '@/assets/logout.svg';
 
 interface ChatPageProps {
   isLoggedIn: boolean;
@@ -18,7 +18,7 @@ interface ChatPageProps {
 export const ChatPage: React.FC<ChatPageProps> = ({ isLoggedIn, onLogout }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  
+
   // 从初始mock数据开始，但稍后会从URL或状态中更新
   const [sessions, setSessions] = useState<ChatSession[]>(MOCK_SESSIONS);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -66,7 +66,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ isLoggedIn, onLogout }) => {
 
     // 如果没有活跃的会话，创建新会话
     let currentSessionId = activeSessionId;
-    
+
     if (!currentSessionId) {
       const newSessionId = `session-${Date.now()}`;
       const newSession: ChatSession = {
@@ -92,7 +92,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ isLoggedIn, onLogout }) => {
       timestamp: Date.now(),
       files: files,
     };
-    
+
     // 立即更新消息（确保用户消息显示）
     setMessages((prev) => [...prev, newUserMessage]);
 
@@ -140,15 +140,17 @@ export const ChatPage: React.FC<ChatPageProps> = ({ isLoggedIn, onLogout }) => {
 
   const dropList = (
     <div className={styles.menuContainer}>
-      {isLoggedIn ?
-        (<div key='1' className={styles.menuItem} onClick={onLogout}>
-          <LogoutIcon />退出登录
-        </div>) 
-        : 
-        (<div key='1' className={styles.menuItem} onClick={() => navigate('/login')}>
-          <ToLoginIcon />登录
-        </div>)}
-
+      {isLoggedIn ? (
+        <div key="1" className={styles.menuItem} onClick={onLogout}>
+          <LogoutIcon />
+          退出登录
+        </div>
+      ) : (
+        <div key="1" className={styles.menuItem} onClick={() => navigate('/login')}>
+          <ToLoginIcon />
+          登录
+        </div>
+      )}
     </div>
   );
 
@@ -191,7 +193,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ isLoggedIn, onLogout }) => {
           </div>
 
           <div className={styles.rightControls}>
-            <Dropdown droplist={dropList} position='br' trigger='click'>
+            <Dropdown droplist={dropList} position="br" trigger="click">
               <Avatar size={32} className={styles.userAvatar}>
                 <img src={AVATAR_USER} alt="User" />
               </Avatar>
