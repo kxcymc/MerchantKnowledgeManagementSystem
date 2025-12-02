@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { Button, Avatar } from '@arco-design/web-react';
+import React, { useEffect, useState } from 'react';
+import { Button, Avatar, Dropdown, Modal } from '@arco-design/web-react';
 import { IconMessage, IconMore, IconEdit, IconMenuFold } from '@arco-design/web-react/icon';
 import { ChatSession } from '@/types';
 import logo from '@/assets/logo.png';
@@ -10,6 +10,7 @@ interface SidebarProps {
   activeSessionId: string;
   onSessionSelect: (id: string) => void;
   onNewChat: () => void;
+  onDeleteSession: (id: string) => void;
   isOpen: boolean;
   isHovered: boolean;
   toggleOpen: () => void;
@@ -20,10 +21,42 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeSessionId,
   onSessionSelect,
   onNewChat,
+  onDeleteSession,
   isOpen,
   isHovered,
   toggleOpen,
 }) => {
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
+
+  const handleDeleteClick = (e: React.MouseEvent, sessionId: string) => {
+    e.stopPropagation();
+    setSessionToDelete(sessionId);
+    setDeleteModalVisible(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (sessionToDelete) {
+      onDeleteSession(sessionToDelete);
+      setDeleteModalVisible(false);
+      setSessionToDelete(null);
+    }
+  };
+
+  const getDropList = (sessionId: string) => (
+    <div className={styles.menuContainer}>
+      <div
+        className={styles.menuItem}
+        onClick={(e) => {
+          e.stopPropagation();
+          handleDeleteClick(e, sessionId);
+        }}
+      >
+        删除对话
+      </div>
+    </div>
+  );
+
   const showHeader = isOpen;
 
   let containerStyle: React.CSSProperties = {};
@@ -116,12 +149,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   className={`${styles.messageIcon} ${activeSessionId === session.id ? styles['messageIcon--active'] : styles['messageIcon--inactive']}`}
                 />
                 <span className={styles.sessionTitle}>{session.title}</span>
-                {activeSessionId === session.id && <IconMore className={styles.moreIcon} />}
+                {activeSessionId === session.id && (
+                  <Dropdown
+                    droplist={getDropList(session.id)}
+                    position="br"
+                    trigger="click"
+                  >
+                    <IconMore
+                      className={styles.moreIcon}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </Dropdown>
+                )}
               </div>
             ))}
           </div>
         </div>
       </div>
+
+      <Modal
+        title="删除对话"
+        visible={deleteModalVisible}
+        onOk={handleConfirmDelete}
+        onCancel={() => setDeleteModalVisible(false)}
+        okText="确定"
+        cancelText="取消"
+      >
+        <p>你确定要删除对话吗？删除后无法找回。</p>
+      </Modal>
     </div>
   );
 };

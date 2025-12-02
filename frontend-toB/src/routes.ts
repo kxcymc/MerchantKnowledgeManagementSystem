@@ -54,13 +54,6 @@ export const routes: IRoute[] = [
     ],
   },
   {
-    name: 'menu.chatbot',
-    key: 'chatbot',
-    requiredPermissions: [
-      { resource: 'menu.chatbot', actions: ['read'] },
-    ],
-  },
-  {
     name: 'menu.dashboard',
     key: 'dashboard',
     children: [

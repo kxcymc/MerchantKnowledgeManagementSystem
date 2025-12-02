@@ -22,8 +22,8 @@ export interface Attachment {
 }
 
 export interface Message {
-  id: string;
-  sessionId?: string;
+  message_id: string;
+  session_id: string;
   role: MessageRole;
   content: string;
   attachments?: Attachment[];

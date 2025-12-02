@@ -4,7 +4,6 @@ import svgrPlugin from '@arco-plugins/vite-plugin-svgr';
 import vitePluginForArco from '@arco-plugins/vite-react';
 import setting from './src/settings.json';
 
-// https://vitejs.dev/config/
 export default defineConfig({
   resolve: {
     alias: [{ find: '@', replacement: '/src' }],
@@ -27,5 +26,10 @@ export default defineConfig({
         javascriptEnabled: true,
       },
     },
+  },
+  server: {
+    port: 5173,
+    strictPort: false,
+    open: true,
   },
 });

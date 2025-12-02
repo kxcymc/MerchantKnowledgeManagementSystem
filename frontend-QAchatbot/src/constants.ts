@@ -9,7 +9,8 @@ export const MOCK_SESSIONS: ChatSession[] = [
 
 export const INITIAL_MESSAGES: Message[] = [
   {
-    id: '1',
+    message_id: '1',
+    session_id: '1',
     role: MessageRole.Assistant,
     content: 'Hello! I am Doubao. How can I help you today?',
     timestamp: Date.now() - 10000,

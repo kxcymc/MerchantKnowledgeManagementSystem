@@ -145,17 +145,17 @@ function Navbar({ show }: { show: boolean }) {
       <div className={styles.left}>
         <div className={styles.logo}>
           <div className={styles['logo-svg']}><Logo /></div>
-          <div className={styles['logo-name']}>商家知识管理系统与问答机器人</div>
+          <div className={styles['logo-name']}>商家知识管理系统</div>
         </div>
       </div>
       <ul className={styles.right}>
-        <li>
+        {/* <li>
           <Input.Search
             className={styles.round}
             placeholder={t['navbar.search.placeholder']}
           />
-        </li>
-        <li>
+        </li> */}
+        {/* <li>
           <Select
             triggerElement={<IconButton icon={<IconLanguage />} />}
             options={[
@@ -175,12 +175,12 @@ function Navbar({ show }: { show: boolean }) {
               Message.info(`${nextLang['message.lang.tips']}${value}`);
             }}
           />
-        </li>
-        <li>
+        </li> */}
+        {/* <li>
           <MessageBox>
             <IconButton icon={<IconNotification />} />
           </MessageBox>
-        </li>
+        </li> */}
         <li>
           <Tooltip
             content={
@@ -195,8 +195,8 @@ function Navbar({ show }: { show: boolean }) {
             />
           </Tooltip>
         </li>
-        <Settings />
-        {userInfo && (
+        {/* <Settings /> */}
+        {/* {userInfo && (
           <li>
             <Dropdown droplist={droplist} position="br" disabled={userLoading}>
               <Avatar size={32} style={{ cursor: 'pointer' }}>
@@ -208,7 +208,7 @@ function Navbar({ show }: { show: boolean }) {
               </Avatar>
             </Dropdown>
           </li>
-        )}
+        )} */}
       </ul>
     </div>
   );
