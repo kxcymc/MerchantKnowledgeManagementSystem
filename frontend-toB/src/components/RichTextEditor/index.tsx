@@ -550,13 +550,13 @@ const LeafComponent: FC<RenderLeafProps> = ({ attributes, children, leaf }) => {
 
 // --- 主组件 ---
 interface RichTextEditorProps {
-    value?: Descendant[];
-    onChange?: (value: Descendant[]) => void;
+    value?: Descendant[][];
+    onChange?: (value: Descendant[][]) => void;
 }
 
 const RichTextEditor: FC<RichTextEditorProps> = ({ value, onChange }) => {
     // 状态管理：pages 存储所有页面的数据，Descendant[][] 结构
-    const [pages, setPages] = useState<Descendant[][]>(() => value && value.length > 0 ? [value] : [initialValue]);
+    const [pages, setPages] = useState<Descendant[][]>(() => value && value.length > 0 ? value : [initialValue]);
     const [currentPageIndex, setCurrentPageIndex] = useState(0);
 
     // 为每一页创建一个独立的 editor 实例，依赖于 currentPageIndex，保证历史记录不混淆
@@ -582,10 +582,10 @@ const RichTextEditor: FC<RichTextEditorProps> = ({ value, onChange }) => {
         newPages[currentPageIndex] = newValue;
         setPages(newPages);
         setCharCount(calculateTextLength(newValue));
-        
-        // 简单触发外部 onChange，回传当前页数据（如果需要回传所有页，需要修改 Props 定义）
+
+        // 简单触发外部 onChange，回传所有页数据
         if (onChange && typeof onChange === 'function') {
-            onChange(newValue);
+            onChange(newPages);
         }
     };
 
@@ -661,12 +661,12 @@ const RichTextEditor: FC<RichTextEditorProps> = ({ value, onChange }) => {
     };
 
     return (
-        <div style={{ border: '1px solid #eee', borderRadius: 4, display: 'flex', flexDirection: 'column', height: 'inherit', width:'inherit', overflow: 'hidden' }}>
+        <div style={{ border: '1px solid #eee', borderRadius: 4, display: 'flex', flexDirection: 'column', height: 'inherit', width: 'inherit', overflow: 'hidden' }}>
             {/* 使用 key 强制重新渲染 Slate 组件，以实现页面切换 */}
-            <Slate 
-                key={currentPageIndex} 
-                editor={editor} 
-                initialValue={pages[currentPageIndex] || initialValue} 
+            <Slate
+                key={currentPageIndex}
+                editor={editor}
+                initialValue={pages[currentPageIndex] || initialValue}
                 onChange={handleChange}
             >
                 {/* 工具栏 */}
@@ -752,10 +752,10 @@ const RichTextEditor: FC<RichTextEditorProps> = ({ value, onChange }) => {
                 <div style={{ padding: '8px 16px', borderTop: '1px solid #eee', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff' }}>
                     <Space>
                         <Tooltip content="上一页">
-                            <Button 
-                                size="small" 
-                                icon={<IconLeft />} 
-                                onClick={handlePrevPage} 
+                            <Button
+                                size="small"
+                                icon={<IconLeft />}
+                                onClick={handlePrevPage}
                                 disabled={currentPageIndex === 0}
                             />
                         </Tooltip>
@@ -763,10 +763,10 @@ const RichTextEditor: FC<RichTextEditorProps> = ({ value, onChange }) => {
                             {currentPageIndex + 1} / {pages.length}
                         </span>
                         <Tooltip content="下一页">
-                            <Button 
-                                size="small" 
-                                icon={<IconRight />} 
-                                onClick={handleNextPage} 
+                            <Button
+                                size="small"
+                                icon={<IconRight />}
+                                onClick={handleNextPage}
                                 disabled={currentPageIndex === pages.length - 1}
                             />
                         </Tooltip>
@@ -777,10 +777,10 @@ const RichTextEditor: FC<RichTextEditorProps> = ({ value, onChange }) => {
                             </Button>
                         </Tooltip>
                         <Tooltip content="删除当前页">
-                            <Button 
-                                size="small" 
-                                status="danger" 
-                                icon={<IconDelete />} 
+                            <Button
+                                size="small"
+                                status="danger"
+                                icon={<IconDelete />}
                                 onClick={handleDeletePage}
                                 disabled={pages.length <= 1}
                             />

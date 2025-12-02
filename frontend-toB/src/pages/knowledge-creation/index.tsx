@@ -24,28 +24,31 @@ export default function KnowledgeCreation() {
     const [fileList, setFileList] = useState<UploadItem[]>([]);
     const [selectedFile, setSelectedFile] = useState<string>('');
     const [isShowSceneSelectCol, setIsShowSceneSelectCol] = useState(false);
-    const [editorContent, setEditorContent] = useState<Descendant[]>([
-        {
+    const [editorContent, setEditorContent] = useState<Descendant[][]>([
+        [{
             type: 'paragraph',
             children: [{ text: '' }],
-        },
-    ]); 
+        }],
+    ]);
 
     const history = useHistory();
     const location = useLocation();
     const { businessName, sceneName } = Object.fromEntries(new URLSearchParams(location.search));
-    useEffect(()=>{
-        if (businessName){
+    useEffect(() => {
+        if (businessName) {
             form.setFieldValue('business', businessName)
         }
-        if(sceneName){
+        if (sceneName) {
             form.setFieldValue('scene', sceneName)
         }
-    },[form, businessName, sceneName])
+    }, [form, businessName, sceneName])
 
 
 
-    const onUploadChange = (fl: UploadItem[]) => {
+    const onUploadChange = (fl: UploadItem[], file: UploadItem) => {
+        form.setFieldValue('files', fl);
+
+
         setFileList(fl);
     };
 
@@ -176,7 +179,7 @@ export default function KnowledgeCreation() {
                                     <Form.Item label="文件上传"
                                         field="files"
                                         rules={[{ required: true, message: '请上传至少一个PDF文件' }]}
-                                        getValueFromEvent={(files) => files}
+                                        getValueFromEvent={(fl) => fl}
                                     >
                                         <div style={{ display: 'flex', gap: 12 }}>
                                             <Upload

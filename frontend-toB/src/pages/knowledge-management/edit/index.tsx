@@ -34,7 +34,7 @@ export default function KnowledgeCreation() {
     const fileTypeParam = params.get('type') || '';
 
     // 修改：处理单个文件上传
-    const onUploadChange = (fl: UploadItem[]) => {
+    const onUploadChange = (fl: UploadItem[], file: UploadItem) => {
         // 只保留最新选择的文件
         if (fl && fl.length > 0) {
             setUploadedFile(fl[fl.length - 1]);
@@ -118,11 +118,11 @@ export default function KnowledgeCreation() {
         }
     }
 
-    const [editorContent, setEditorContent] = useState<Descendant[]>([
-        {
+    const [editorContent, setEditorContent] = useState<Descendant[][]>([
+        [{
             type: 'paragraph',
             children: [{ text: '' }],
-        },
+        }],
     ]);
     const [isShowSceneSelectCol, setIsShowSceneSelectCol] = useState(false);
 
@@ -181,7 +181,7 @@ export default function KnowledgeCreation() {
                                     <>
                                         <Form.Item label="新文件上传"
                                             field="files"
-                                            getValueFromEvent={(files) => files}
+                                            getValueFromEvent={(fl) => fl}
                                         >
                                             <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                                                 <Upload
