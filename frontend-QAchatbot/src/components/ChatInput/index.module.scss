@@ -1,22 +1,7 @@
-$color-blue-600: #2563eb;
-$color-blue-400: #60a5fa;
-$color-gray-50: #f9fafb;
-$color-gray-100: #f3f4f6;
-$color-gray-200: #e5e7eb;
-$color-gray-300: #d1d5db;
-$color-gray-400: #9ca3af;
-$color-gray-700: #374151;
-$color-gray-800: #1f2937;
-$color-gray-900: #111827;
-$color-white: #ffffff;
-$color-blue-200: #bfdbfe;
-$color-deep-think-bg: #e8f3ff;
-$color-deep-think-hover: #dbeeff;
-
 .chatInputWrapper {
     position: relative;
-    background-color: $color-white;
-    border: 1px solid rgba($color-gray-200, 0.8);
+    background-color: #ffffff;
+    border: 1px solid rgba(#e5e7eb, 0.8);
     border-radius: 24px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
     transition: all 200ms ease-in-out;
@@ -24,11 +9,11 @@ $color-deep-think-hover: #dbeeff;
     flex-direction: column;
 
     &:hover {
-        border-color: $color-gray-300;
+        border-color: #d1d5db;
     }
 
     &:focus-within {
-        border-color: rgba($color-blue-400, 0.5);
+        border-color: rgba(#60a5fa, 0.5);
     }
 }
 
@@ -52,13 +37,13 @@ $color-deep-think-hover: #dbeeff;
     font-size: 15px;
     padding: 12px 16px !important;
     outline: none !important;
-    color: $color-gray-700;
+    color: #374151;
     overflow-x: hidden;
     scrollbar-width: thin;
     flex-grow: 1;
 
     &::placeholder {
-        color: $color-gray-300;
+        color: #d1d5db;
     }
 }
 
@@ -77,11 +62,11 @@ $color-deep-think-hover: #dbeeff;
 }
 
 .toolbarButton {
-    color: $color-gray-400;
+    color: #9ca3af;
     background-color: transparent;
 
     &:hover {
-        background-color: $color-gray-100;
+        background-color: #f3f4f6;
     }
 
     border: none !important;
@@ -93,31 +78,31 @@ $color-deep-think-hover: #dbeeff;
     align-items: center;
     gap: 6px;
     padding: 4px 12px;
-    background-color: $color-deep-think-bg;
+    background-color: #e8f3ff;
     border-radius: 9999px;
     cursor: pointer;
     transition: background-color 200ms ease;
     user-select: none;
 
     &:hover {
-        background-color: $color-deep-think-hover;
+        background-color: #dbeeff;
     }
 }
 
 .deepThinkIcon {
-    color: $color-blue-600;
+    color: #2563eb;
 }
 
 .deepThinkLabel {
     font-size: 12px;
     font-weight: 500;
-    color: $color-blue-600;
+    color: #2563eb;
 }
 
 .toolbarDivider {
     width: 1px;
     height: 16px;
-    background-color: $color-gray-200;
+    background-color: #e5e7eb;
     margin: 0 4px;
 }
 
@@ -126,13 +111,13 @@ $color-deep-think-hover: #dbeeff;
     box-shadow: none !important;
 
     &.sendButtonActive {
-        background-color: $color-blue-600;
-        color: $color-white;
+        background-color: #2563eb;
+        color: #ffffff;
     }
 
     &.sendButtonInactive {
-        background-color: $color-gray-100;
-        color: $color-gray-300;
+        background-color: #f3f4f6;
+        color: #d1d5db;
     }
 }
 
@@ -163,17 +148,17 @@ $color-deep-think-hover: #dbeeff;
     @include flex(space-between);
     min-width: 0;
     padding: 8px 12px;
-    background-color: $color-gray-50;
-    border: 1px solid $color-gray-200;
+    background-color: #f9fafb;
+    border: 1px solid #e5e7eb;
     border-radius: 10px;
     font-size: 13px;
-    color: $color-gray-700;
+    color: #374151;
     font-weight: 500;
     transition: all 200ms ease;
 
     &:hover {
-        border-color: $color-blue-200;
-        background-color: $color-deep-think-bg;
+        border-color: #bfdbfe;
+        background-color: #e8f3ff;
     }
 
     .tagName {
@@ -189,7 +174,7 @@ $color-deep-think-hover: #dbeeff;
     margin-left: 10px;
     cursor: pointer;
     font-size: 16px;
-    color: $color-gray-400;
+    color: #9ca3af;
     transition: color 200ms;
     display: flex;
     align-items: center;
@@ -198,15 +183,15 @@ $color-deep-think-hover: #dbeeff;
     border-radius: 4px;
 
     &:hover {
-        color: $color-gray-700;
-        background-color: rgba($color-gray-200, 0.5);
+        color: #374151;
+        background-color: rgba(#e5e7eb, 0.5);
     }
 }
 
 .previewDivider {
     width: 96%;
     height: 1px;
-    background-color: $color-gray-100;
+    background-color: #f3f4f6;
     flex-shrink: 0;
     margin: 0 auto;
     margin-bottom: 4px;
