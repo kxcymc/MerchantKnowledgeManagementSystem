@@ -68,10 +68,18 @@
 
         &.messageContentWrapperUser {
           flex-direction: row-reverse;
+
+          .messageBubbleWrapper {
+            align-items: flex-end;
+          }
         }
 
         &.messageContentWrapperAssistant {
           flex-direction: row;
+
+          .messageBubbleWrapper {
+            align-items: flex-start;
+          }
         }
 
         .avatarWrapper {
@@ -149,6 +157,91 @@
               color: #1f2937;
               border-radius: 16px;
               border: 1px solid #f3f4f6;
+            }
+          }
+
+          .referenceContainer {
+            margin-top: 12px;
+            width: 100%;
+            max-width: 600px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            overflow: hidden;
+
+            .referenceHeader {
+              padding: 10px 16px;
+              font-size: 14px;
+              font-weight: 500;
+              color: #374151;
+              background-color: #f9fafb;
+              border-bottom: 1px solid #e5e7eb;
+              display: flex;
+              align-items: center;
+              gap: 6px;
+
+              .infoIcon {
+                color: #9ca3af;
+                font-size: 14px;
+              }
+            }
+
+            .referenceList {
+              max-height: calc(4 * 40px); // Approx 4 items
+              overflow-y: auto;
+              background-color: #fff;
+
+              .referenceItem {
+                display: flex;
+                align-items: center;
+                padding: 10px 16px;
+                font-size: 13px;
+                color: #4b5563;
+                border-bottom: 1px solid #f3f4f6;
+                transition: background-color 0.2s;
+
+                &:last-child {
+                  border-bottom: none;
+                }
+
+                &:hover {
+                  background-color: #f9fafb;
+                }
+
+                .referenceIndex {
+                  width: 24px;
+                  color: #9ca3af;
+                  font-size: 12px;
+                  flex-shrink: 0;
+                  background-color: #f3f4f6;
+                  border-radius: 4px;
+                  height: 20px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  margin-right: 12px;
+                }
+
+                .referenceTitle {
+                  flex: 1;
+                  color: #2563eb;
+                  font-weight: 500;
+                  white-space: nowrap;
+                  overflow: hidden;
+                  text-overflow: ellipsis;
+                  margin-right: 16px;
+                  cursor: pointer;
+
+                  &:hover {
+                    text-decoration: underline;
+                  }
+                }
+
+                .referenceDate {
+                  color: #9ca3af;
+                  font-size: 12px;
+                  flex-shrink: 0;
+                }
+              }
             }
           }
         }

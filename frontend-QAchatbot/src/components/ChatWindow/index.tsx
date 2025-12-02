@@ -3,6 +3,8 @@ import { Message, MessageRole } from '@/types';
 import logo from "@/assets/logo.png"
 import styles from './index.module.scss';
 import { ChatInput } from '@/components/ChatInput';
+import { MOCK_REFERENCES } from '@/constants';
+import { IconInfoCircle } from '@arco-design/web-react/icon';
 
 interface ChatWindowProps {
   messages: Message[];
@@ -31,7 +33,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ messages, onSendMessage,
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
 
-      if (inputValue.trim() || (files && files.length > 0)) {        
+      if (inputValue.trim() || (files && files.length > 0)) {
         onSendMessage(inputValue.trim(), files);
         setInputValue('');
       }
@@ -85,12 +87,29 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ messages, onSendMessage,
                 )}
                 <div
                   className={`${styles.messageBubble} ${msg.role === MessageRole.User
-                      ? styles.messageBubbleUser
-                      : styles.messageBubbleAssistant
+                    ? styles.messageBubbleUser
+                    : styles.messageBubbleAssistant
                     }`}
                 >
                   {msg.content}
                 </div>
+                {msg.role === MessageRole.Assistant && (
+                  <div className={styles.referenceContainer}>
+                    <div className={styles.referenceHeader}>
+                      为你找到 {MOCK_REFERENCES.length} 篇参考资料
+                      <IconInfoCircle className={styles.infoIcon} />
+                    </div>
+                    <div className={styles.referenceList}>
+                      {MOCK_REFERENCES.map((ref, idx) => (
+                        <div key={idx} className={styles.referenceItem}>
+                          <span className={styles.referenceIndex}>{idx + 1}</span>
+                          <span className={styles.referenceTitle}>{ref.url}</span>
+                          <span className={styles.referenceDate}>{ref.created_at}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

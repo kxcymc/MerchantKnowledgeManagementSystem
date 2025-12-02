@@ -91,30 +91,37 @@ export const ChatInput: React.FC<ChatInputProps> = memo(
         />
 
         <div className={styles.innerScrollContent}>
-        {selectedFiles.length > 0 && (
-          <div className={`${styles.chatPreview} ${isScrollablePreview ? styles.scrollablePreview : ''}`}>
-            {selectedFiles.map((file, index) => (
-              <span key={index} className={styles.previewTag}>
-                <span className={styles.tagName} title={`文件: ${file.name}`}>{`文件: ${file.name}`}</span>
-                <IconClose
-                  className={styles.removeIcon}
-                  onClick={() => handleRemoveFile(index)}
-                />
-              </span>
-            ))}
-          </div>
-        )}
+          {selectedFiles.length > 0 && (
+            <div className={`${styles.chatPreview} ${isScrollablePreview ? styles.scrollablePreview : ''}`}>
+              {selectedFiles.map((file, index) => (
+                <span key={index} className={styles.previewTag}>
+                  <span className={styles.tagName} title={`文件: ${file.name}`}>{`文件: ${file.name}`}</span>
+                  <IconClose
+                    className={styles.removeIcon}
+                    onClick={() => handleRemoveFile(index)}
+                  />
+                </span>
+              ))}
+            </div>
+          )}
 
-        {isScrollablePreview && <div className={styles.previewDivider} />}
+          {isScrollablePreview && <div className={styles.previewDivider} />}
 
-        <Input.TextArea
-          placeholder={selectedFiles.length > 0 && inputValue.trim().length === 0 ? '用抖音商家知识库解读附件内容' : "输入您的问题，支持附件上传"}
-          value={inputValue}
-          onChange={setInputValue}
-          onKeyDown={(e) => handleKeyDown(e, selectedFiles)}
-          autoSize={{ minRows: minimized ? 1 : 3, maxRows: 20 }}
-          className={styles.chatInputTextarea}
-        />
+          <Input.TextArea
+            placeholder={selectedFiles.length > 0 && inputValue.trim().length === 0 ? '用抖音商家知识库解读附件内容' : "输入您的问题，支持附件上传"}
+            value={inputValue}
+            onChange={setInputValue}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                unifiedHandleSend();
+              } else {
+                handleKeyDown(e, selectedFiles);
+              }
+            }}
+            autoSize={{ minRows: minimized ? 1 : 3, maxRows: 20 }}
+            className={styles.chatInputTextarea}
+          />
         </div>
 
         <div className={styles.chatToolbar}>
