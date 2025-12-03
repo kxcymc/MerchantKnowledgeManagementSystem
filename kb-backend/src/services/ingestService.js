@@ -6,11 +6,21 @@ const JsonVectorStore = require('../vectorStore');
 const { extractTextFromFile, extractTextFromFileWithPageInfo } = require('./textExtractor');
 const logger = require('../utils/logger');
 const config = require('../config');
+const SemanticSplitter = require('./semanticSplitter');
 
+// 保留原有的splitter用于向后兼容（用于chunkAndEmbed函数）
 const splitter = new RecursiveCharacterTextSplitter({
   chunkSize: 800,
   chunkOverlap: 160,
   separators: ['\n\n', '\n', '。', '！', '？', ' ']
+});
+
+// 智能语义分割器（支持自适应chunk大小、跨页分割）
+const semanticSplitter = new SemanticSplitter({
+  minChunkSize: 200,   // 最小chunk大小（字符数），小于此值会合并
+  maxChunkSize: 1200,  // 最大chunk大小（字符数），大于此值会拆分
+  targetChunkSize: 800, // 目标chunk大小
+  chunkOverlap: 160     // chunk重叠大小
 });
 
 // 三种存储模式：'json' | 'persistent' | 'server'
@@ -138,8 +148,36 @@ async function chunkAndEmbedWithPageInfo(pageLineData, baseMetadata) {
     });
   }
   
-  // 创建文档并分块（使用更新后的fullText）
-  const documents = await splitter.createDocuments([fullText], [baseMetadata]);
+  // 使用智能语义分割器进行分割（支持自适应chunk大小、跨页分割）
+  logger.info('开始智能语义分割', {
+    filename: baseMetadata.filename,
+    textLength: fullText.length,
+    positionMapSize: positionMap.length,
+    minChunkSize: semanticSplitter.minChunkSize,
+    maxChunkSize: semanticSplitter.maxChunkSize,
+    targetChunkSize: semanticSplitter.targetChunkSize
+  });
+  
+  const semanticChunks = await semanticSplitter.splitTextWithPosition(fullText, positionMap);
+  
+  // 将语义分割的结果转换为Document格式
+  const documents = semanticChunks.map((chunk, index) => ({
+    pageContent: chunk.text,
+    metadata: {
+      ...baseMetadata,
+      chunkIndex: index,
+      chunkSize: chunk.size,
+      // 保存位置信息到metadata中，方便后续使用
+      _position: {
+        startPos: chunk.startPos,
+        endPos: chunk.endPos,
+        page: chunk.page,
+        line: chunk.line,
+        endPage: chunk.endPage,
+        endLine: chunk.endLine
+      }
+    }
+  }));
   
   // 如果文档为空，创建一个包含文件信息的文档
   if (!documents || documents.length === 0) {
@@ -162,50 +200,51 @@ async function chunkAndEmbedWithPageInfo(pageLineData, baseMetadata) {
   const embeddingsModel = getEmbeddings();
   const embeddings = await embeddingsModel.embedDocuments(documents.map((doc) => doc.pageContent));
   
-  // 为每个chunk找到对应的页码和行号
-  let searchPos = 0;
+  // 检查是否是OCR识别的文本（通过sourceType判断）
+  const isOcrText = baseMetadata.sourceType === 'file' && pageLineData.some(item => {
+    // OCR文本通常每页的行号都从1开始，且可能有多行
+    return item.page > 1 || (item.page === 1 && item.line > 1);
+  });
+
+  // 使用语义分割的结果，直接使用已经计算好的位置信息
   const chunks = [];
   
-  for (let i = 0; i < documents.length; i++) {
-    const doc = documents[i];
+  for (let docIndex = 0; docIndex < documents.length; docIndex++) {
+    const doc = documents[docIndex];
+    const semanticChunk = semanticChunks[docIndex];
     const chunkText = doc.pageContent;
     
-    // 在完整文本中找到chunk的位置
-    const chunkStart = fullText.indexOf(chunkText, searchPos);
-    if (chunkStart === -1) {
-      // 如果找不到精确匹配，使用搜索位置作为近似
-      searchPos = Math.min(searchPos, fullText.length);
-    } else {
-      searchPos = chunkStart;
-    }
-    const chunkEnd = searchPos + chunkText.length;
+    // 从语义分割结果中获取位置信息（已经计算好的）
+    let startPage = semanticChunk.page;
+    let startLine = semanticChunk.line;
+    let endPage = semanticChunk.endPage;
+    let endLine = semanticChunk.endLine;
     
-    // 找到chunk覆盖的起始和结束行
-    let startPage = 1;
-    let startLine = 1;
-    let endPage = 1;
-    let endLine = 1;
-    
-    for (const posInfo of positionMap) {
-      // 检查chunk开始位置是否在这个行内
-      if (searchPos >= posInfo.startPos && searchPos < posInfo.endPos) {
-        startPage = posInfo.page;
-        startLine = posInfo.line;
-      }
-      
-      // 检查chunk结束位置是否在这个行内或之后
-      if (chunkEnd > posInfo.startPos && chunkEnd <= posInfo.endPos) {
-        endPage = posInfo.page;
-        endLine = posInfo.line;
-        break;
-      }
-      
-      // 如果chunk跨越了这行
-      if (searchPos < posInfo.endPos && chunkEnd > posInfo.startPos) {
-        endPage = posInfo.page;
-        endLine = posInfo.line;
+    // 对于OCR文本，如果跨页，确保endPage正确
+    if (isOcrText && startPage !== endPage) {
+      // OCR文本跨页时，endPage应该大于startPage
+      if (endPage < startPage) {
+        endPage = startPage;
       }
     }
+    
+    // 生成 loc 字段（位置信息）
+    // 对于OCR文本，主要使用页面信息；对于普通文本，使用行号信息
+    const loc = isOcrText ? {
+      pages: {
+        from: startPage,
+        to: endPage
+      },
+      lines: {
+        from: startLine,
+        to: endLine
+      }
+    } : {
+      lines: {
+        from: startLine,
+        to: endLine
+      }
+    };
     
     chunks.push({
       id: uuid(),
@@ -216,13 +255,13 @@ async function chunkAndEmbedWithPageInfo(pageLineData, baseMetadata) {
         page: startPage, // chunk开始的页码
         line: startLine, // chunk开始的行号
         endPage: endPage, // chunk结束的页码
-        endLine: endLine  // chunk结束的行号
+        endLine: endLine, // chunk结束的行号
+        loc: loc, // 位置信息对象（OCR文本包含pages信息）
+        isOcrText: isOcrText, // 标记是否为OCR文本
+        chunkSize: semanticChunk.size // chunk大小
       },
-      embedding: embeddings[i]
+      embedding: embeddings[docIndex]
     });
-    
-    // 更新搜索位置
-    searchPos = chunkEnd;
   }
   
   return chunks;
@@ -328,4 +367,5 @@ module.exports = {
   splitter, // 导出 splitter 供外部使用
   chunkAndEmbedWithPageInfo // 导出带页码行号的chunk方法
 };
+
 

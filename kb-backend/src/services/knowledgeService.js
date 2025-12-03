@@ -5,6 +5,7 @@ const logger = require('../utils/logger');
 const dbService = require('./dbService');
 const { ingestFile, ingestRawText, vectorStore } = require('./ingestService');
 const { extractTextFromFile } = require('./textExtractor');
+const TextCleaner = require('./textCleaner');
 const sseService = require('./sseService');
 
 // 保存JSON文件到本地（以标题命名，附带knowledgeId防止完全重名冲突）
@@ -435,9 +436,12 @@ async function addJsonKnowledge(jsonData, isUpdate = false, knowledge_id = null)
   }
   
   // 将JSON内容转为文本用于向量化
-  const jsonText = typeof content === 'string' 
+  let jsonText = typeof content === 'string' 
     ? content 
     : JSON.stringify(content, null, 2);
+  
+  // 清洗 JSON 文本（去除多余空格、特殊字符等）
+  jsonText = TextCleaner.cleanText(jsonText, false);
   
   // 如果不是更新操作，检查是否存在相同title的记录
   const existingKnowledge = !isUpdate && !knowledge_id 

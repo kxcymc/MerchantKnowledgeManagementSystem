@@ -4,6 +4,7 @@ const axios = require('axios');
 const { execSync, spawn } = require('child_process');
 const config = require('../config');
 const pdfParse = require('pdf-parse');
+const TextCleaner = require('./textCleaner');
 
 const OCR_TIMEOUT = 60000; // 60 seconds per page
 
@@ -140,7 +141,8 @@ async function recognizeTextWithAliyunOCR(imagePath) {
     if (response.data && response.data.choices && response.data.choices.length > 0) {
       const message = response.data.choices[0].message;
       if (message && message.content) {
-        return message.content.trim();
+        // OCR 文本需要更严格的清洗
+        return TextCleaner.cleanOcrText(message.content);
       }
     }
 
@@ -153,8 +155,9 @@ async function recognizeTextWithAliyunOCR(imagePath) {
   }
 }
 
-// 主函数：对 PDF 进行 OCR 识别
-async function runOcrOnPdf(filePath, maxPages = 3) {
+// 主函数：对 PDF 进行 OCR 识别（返回所有页面的文本）
+// 如果指定 returnByPage=true，返回按页组织的数组 [{page, text}]
+async function runOcrOnPdf(filePath, maxPages = null, returnByPage = false) {
   // 检查 Poppler 是否可用
   const popplerAvailable = checkPopplerAvailable();
   if (!popplerAvailable) {
@@ -163,22 +166,35 @@ async function runOcrOnPdf(filePath, maxPages = 3) {
 
   // 获取 PDF 实际页数
   const totalPages = await getPdfPageCount(filePath);
-  const pagesToProcess = Math.min(maxPages, totalPages);
+  // 如果没有指定maxPages或为null，处理所有页面
+  const pagesToProcess = maxPages ? Math.min(maxPages, totalPages) : totalPages;
 
   if (pagesToProcess === 0) {
-    return '';
+    return returnByPage ? [] : '';
   }
 
   const tempDir = path.join(path.dirname(filePath), `ocr_${Date.now()}`);
   await fs.ensureDir(tempDir);
 
   const textParts = [];
+  const pageResults = []; // 按页组织的结果
+  const logger = require('../utils/logger');
+  
+  logger.info('开始OCR逐页处理', {
+    filePath: path.basename(filePath),
+    totalPages: pagesToProcess
+  });
   
   try {
     for (let page = 1; page <= pagesToProcess; page += 1) {
       let imagePath = null;
       
       try {
+        logger.debug(`OCR处理第 ${page}/${pagesToProcess} 页`, {
+          filePath: path.basename(filePath),
+          page
+        });
+        
         // 使用 Poppler 将 PDF 页面转换为图片
         const timeoutPromise = new Promise((_, reject) => 
           setTimeout(() => reject(new Error('Poppler 转换超时')), OCR_TIMEOUT)
@@ -194,15 +210,44 @@ async function runOcrOnPdf(filePath, maxPages = 3) {
         
         const ocrText = await Promise.race([ocrPromise, ocrTimeoutPromise]);
         
-        if (ocrText && ocrText.trim().length > 0) {
-          textParts.push(ocrText.trim());
+        // OCR 文本已经在 recognizeTextWithAliyunOCR 中清洗过了
+        if (ocrText && ocrText.length > 0) {
+          textParts.push(ocrText);
+          if (returnByPage) {
+            pageResults.push({ page, text: ocrText });
+          }
+          logger.debug(`OCR第 ${page} 页处理成功`, {
+            filePath: path.basename(filePath),
+            page,
+            textLength: ocrText.length
+          });
+        } else {
+          // 即使没有文本，也记录页面信息
+          if (returnByPage) {
+            pageResults.push({ page, text: '' });
+          }
+          logger.debug(`OCR第 ${page} 页无文本`, {
+            filePath: path.basename(filePath),
+            page
+          });
         }
       } catch (error) {
         // 如果第一页就失败，可能是配置问题，抛出错误
         if (page === 1 && textParts.length === 0) {
           throw new Error(`OCR 初始失败: ${error.message}`);
         }
-        // 其他页失败时静默跳过，不记录日志
+        // 其他页失败时记录警告，但继续处理
+        logger.warn(`OCR 处理第 ${page}/${pagesToProcess} 页失败`, { 
+          error: error.message, 
+          filePath: path.basename(filePath),
+          page,
+          totalPages: pagesToProcess,
+          errorStack: error.stack
+        });
+        if (returnByPage) {
+          // 即使失败，也记录页面信息，确保所有页面都有记录
+          pageResults.push({ page, text: '' });
+        }
       } finally {
         // 清理单页图片文件
         if (imagePath) {
@@ -223,8 +268,47 @@ async function runOcrOnPdf(filePath, maxPages = 3) {
     }
   }
 
-  const finalText = textParts.join('\n').trim();
+  // 如果按页返回，直接返回页面结果
+  if (returnByPage) {
+    // 确保返回的页面数量与预期一致
+    if (pageResults.length < pagesToProcess) {
+      logger.warn('OCR处理页面数不足', {
+        filePath: path.basename(filePath),
+        expected: pagesToProcess,
+        actual: pageResults.length,
+        processedPages: pageResults.map(r => r.page)
+      });
+      
+      // 补充缺失的页面（可能因为错误被跳过）
+      for (let page = 1; page <= pagesToProcess; page += 1) {
+        if (!pageResults.some(r => r.page === page)) {
+          logger.warn(`补充缺失的第 ${page} 页`, {
+            filePath: path.basename(filePath),
+            page
+          });
+          pageResults.push({ page, text: '' });
+        }
+      }
+      // 按页码排序
+      pageResults.sort((a, b) => a.page - b.page);
+    }
+    
+    logger.info('OCR逐页处理完成', {
+      filePath: path.basename(filePath),
+      expectedPages: pagesToProcess,
+      actualPages: pageResults.length,
+      pagesWithText: pageResults.filter(r => r.text && r.text.length > 0).length
+    });
+    
+    return pageResults;
+  }
 
+  // 合并所有页面的 OCR 文本，并进行最终清洗
+  let finalText = textParts.join('\n');
+  
+  // 最终清洗：去除多余的连续换行
+  finalText = TextCleaner.cleanText(finalText, true);
+  
   return finalText;
 }
 

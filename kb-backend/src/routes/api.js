@@ -138,12 +138,19 @@ router.post('/update', upload.single('document'), async (req, res) => {
       }
 
       // 解析 content（如果有传），否则沿用当前内容
+      // 由于使用了 express.json() 中间件，req.body.content 应该已经是对象
+      // 但如果前端发送的是字符串（如通过 form-data），仍需要解析
       let newContent = current.content;
       if (content !== undefined) {
-        try {
-          newContent = typeof content === 'string' ? JSON.parse(content) : content;
-        } catch (e) {
-          return res.status(400).json({ message: 'content 不是合法的 JSON 字符串' });
+        if (typeof content === 'string') {
+          try {
+            newContent = JSON.parse(content);
+          } catch (e) {
+            return res.status(400).json({ message: 'content 不是合法的 JSON 字符串' });
+          }
+        } else {
+          // 已经是对象，直接使用
+          newContent = content;
         }
         updates.content = newContent;
       }
@@ -384,6 +391,7 @@ router.get('/mul-query', async (req, res) => {
       };
 
       // 如果是JSON类型，返回原始JSON；如果是文件类型，只返回URL
+      // 注意：从数据库读取的 content 可能是 JSON 字符串，需要解析
       if (item.type === 'json' && item.content) {
         try {
           result.content = typeof item.content === 'string' 
@@ -430,6 +438,7 @@ router.get('/query', async (req, res) => {
       scene: item.scene || ''
     };
 
+    // 注意：从数据库读取的 content 可能是 JSON 字符串，需要解析
     if (item.type === 'json' && item.content) {
       try {
         result.content =
@@ -589,11 +598,18 @@ router.post('/add', upload.single('document'), async (req, res) => {
     }
 
     // 解析JSON内容
+    // 由于使用了 express.json() 中间件，req.body.content 应该已经是对象
+    // 但如果前端发送的是字符串（如通过 form-data），仍需要解析
     let jsonContent;
-    try {
-      jsonContent = typeof content === 'string' ? JSON.parse(content) : content;
-    } catch {
-      return res.status(400).json({ message: 'content 必须是有效的JSON格式' });
+    if (typeof content === 'string') {
+      try {
+        jsonContent = JSON.parse(content);
+      } catch {
+        return res.status(400).json({ message: 'content 必须是有效的JSON格式' });
+      }
+    } else {
+      // 已经是对象，直接使用
+      jsonContent = content;
     }
     
     // 如果指定了knowledge_id和force_update，直接执行更新
@@ -853,12 +869,19 @@ router.post('/update', upload.single('document'), async (req, res) => {
 
     if (existing.type === 'json') {
       // JSON类型更新
+      // 由于使用了 express.json() 中间件，req.body.content 应该已经是对象
+      // 但如果前端发送的是字符串（如通过 form-data），仍需要解析
       let jsonContent;
       if (content) {
-        try {
-          jsonContent = typeof content === 'string' ? JSON.parse(content) : content;
-        } catch {
-          return res.status(400).json({ message: 'content 必须是有效的JSON格式' });
+        if (typeof content === 'string') {
+          try {
+            jsonContent = JSON.parse(content);
+          } catch {
+            return res.status(400).json({ message: 'content 必须是有效的JSON格式' });
+          }
+        } else {
+          // 已经是对象，直接使用
+          jsonContent = content;
         }
       }
 
@@ -931,7 +954,7 @@ router.get('/file/:knowledgeId', async (req, res) => {
         return res.status(404).json({ message: 'JSON内容不存在' });
       }
       
-      // 解析content（可能是字符串或对象）
+      // 注意：从数据库读取的 content 可能是 JSON 字符串，需要解析
       let jsonContent;
       try {
         jsonContent = typeof knowledge.content === 'string' 
