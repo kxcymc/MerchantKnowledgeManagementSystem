@@ -103,7 +103,6 @@
 
 /* 1. 外层容器 */
 .menuContainer {
-  box-sizing: border-box;
   min-width: 180px;
   background-color: #fff;
   border-radius: 10px;
@@ -119,7 +118,6 @@
     width: 94%;
     height: 30px;
     padding-left: 14px;
-    box-sizing: border-box;
     border: none;
     background: transparent;
     border-radius: 8px;
