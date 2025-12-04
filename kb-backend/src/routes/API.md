@@ -345,11 +345,54 @@ Content-Disposition: inline; filename="退款预留金实施细则.pdf"
 - 响应体：一个包含 `<object>` / `<iframe>` 的 HTML 页面，内部引用 `?raw=true` 的真实文件地址。
 
 **curl 示例**：
-
 ```bash
-# 1）下载原始 PDF 文件到本地
-curl "http://localhost:3001/api/file/45?raw=true" -o refund.pdf
-
-# 2）调试查看 HTML 预览页（输出 HTML 源码）
-curl "http://localhost:3001/api/file/45"
+curl -X POST http://localhost:3001/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "什么是退款预留金？", "session_id": "session-123"}' \
+  --no-buffer
 ```
+
+**示例（JavaScript EventSource 替代方案）**：
+
+```javascript
+// 使用 fetch + ReadableStream 处理 SSE
+async function chat(message, history = []) {
+  const response = await fetch('http://localhost:3001/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, history })
+  });
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    const text = decoder.decode(value);
+    const lines = text.split('\n');
+
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        const data = JSON.parse(line.slice(6));
+        
+        if (data.type === 'token') {
+          // 增量显示
+          console.log(data.content);
+        } else if (data.type === 'done') {
+          // 完成，获取引用
+          console.log('引用来源:', data.references);
+        }
+      }
+    }
+  }
+}
+```
+
+**注意事项**：
+
+1. 需要配置 `DASHSCOPE_API_KEY` 环境变量
+2. 知识库为空时，会返回"暂未找到相关信息"
+3. 多轮对话通过 `history` 参数传递上下文
+4. 前端需要处理 SSE 流式数据

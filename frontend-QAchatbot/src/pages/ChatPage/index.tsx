@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Sidebar } from '@/components/Sidebar';
 import { ChatWindow } from '@/components/ChatWindow';
@@ -9,6 +9,7 @@ import { IconMenu, IconPlus, } from '@arco-design/web-react/icon';
 import styles from './index.module.scss';
 import ToLoginIcon from '@/assets/goToLogin.svg'
 import LogoutIcon from '@/assets/logout.svg'
+import { chatWithRAG, ChatMessage } from '@/api';
 
 interface ChatPageProps {
   isLoggedIn: boolean;
@@ -54,7 +55,15 @@ export const ChatPage: React.FC<ChatPageProps> = ({ isLoggedIn, onLogout }) => {
     navigate('/');
   };
 
-  const handleSendMessage = (content: string, files?: File[]) => {
+  // 将 messages 转换为 API 需要的 history 格式
+  const buildHistory = useCallback((msgs: Message[]): ChatMessage[] => {
+    return msgs.map(msg => ({
+      role: msg.role as 'user' | 'assistant',
+      content: msg.content,
+    }));
+  }, []);
+
+  const handleSendMessage = async (content: string, files?: File[]) => {
     let messageContent = content;
     if (files && files.length > 0) {
       if (content.trim()) {
@@ -96,17 +105,69 @@ export const ChatPage: React.FC<ChatPageProps> = ({ isLoggedIn, onLogout }) => {
     // 立即更新消息（确保用户消息显示）
     setMessages((prev) => [...prev, newUserMessage]);
 
-    // 模拟AI响应
-    setTimeout(() => {
-      const aiResponse: Message = {
-        message_id: `msg-${Date.now() + 1}`,
-        session_id: currentSessionId,
-        role: MessageRole.Assistant,
-        content: `I received your message: "${messageContent}". This is a simulated response.`,
-        timestamp: Date.now(),
-      };
-      setMessages((prev) => [...prev, aiResponse]);
-    }, 1000);
+    // 创建 AI 响应消息（流式更新）
+    const aiMessageId = `msg-${Date.now() + 1}`;
+    const aiResponse: Message = {
+      message_id: aiMessageId,
+      session_id: currentSessionId,
+      role: MessageRole.Assistant,
+      content: '',
+      timestamp: Date.now(),
+      isStreaming: true,
+    };
+    setMessages((prev) => [...prev, aiResponse]);
+
+    // 调用 RAG Chat API
+    const history = buildHistory(messages);
+    
+    await chatWithRAG(messageContent, history, currentSessionId, {
+      onToken: (token) => {
+        // 流式更新 AI 响应内容
+        setMessages((prev) => 
+          prev.map((msg) => 
+            msg.message_id === aiMessageId
+              ? { ...msg, content: msg.content + token }
+              : msg
+          )
+        );
+      },
+      onDone: (finalContent, references) => {
+        // 完成时更新最终内容并移除 streaming 状态
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.message_id === aiMessageId
+              ? { ...msg, content: finalContent, isStreaming: false }
+              : msg
+          )
+        );
+        
+        // 如果有引用，可以在这里处理（如显示来源）
+        if (references && references.length > 0) {
+          console.log('引用来源:', references);
+        }
+        
+        // 更新会话标题（使用用户第一条消息的前20个字符）
+        if (messages.length === 0) {
+          setSessions((prev) =>
+            prev.map((session) =>
+              session.id === currentSessionId
+                ? { ...session, title: messageContent.slice(0, 20) + (messageContent.length > 20 ? '...' : '') }
+                : session
+            )
+          );
+        }
+      },
+      onError: (error) => {
+        // 错误处理
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.message_id === aiMessageId
+              ? { ...msg, content: `抱歉，发生错误：${error}`, isStreaming: false }
+              : msg
+          )
+        );
+      },
+    });
   };
 
   const handleDeleteSession = (sessionId: string) => {
