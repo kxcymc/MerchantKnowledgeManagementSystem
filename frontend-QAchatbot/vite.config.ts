@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import svgrPlugin from '@arco-plugins/vite-plugin-svgr';
+import svgrPlugin from 'vite-plugin-svgr';
 
 export default defineConfig({
   plugins: [
@@ -18,7 +18,7 @@ export default defineConfig({
   css: {
     preprocessorOptions: {
       scss: {
-        additionalData: `@import "${path.resolve(__dirname, './src/styles/utils.scss')}";\n`,
+        additionalData: `@import "${path.resolve(__dirname, './src/styles/utils.scss').replace(/\\/g, '/')}";\n`,
       },
     },
     devSourcemap: true,
