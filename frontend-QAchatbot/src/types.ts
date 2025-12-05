@@ -29,7 +29,7 @@ export interface Message {
   attachments?: Attachment[];
   timestamp: number;
   isStreaming?: boolean;
-  files? : File[];
+  files?: File[];
 }
 
 // Chat Session Types

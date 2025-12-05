@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { BrowserRouter, Routes, Route, } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { LoginPage } from '@/pages/LoginPage';
 import { ChatPage } from '@/pages/ChatPage';
 import '@/styles/index.scss';
 
 const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  
+
   const handleLogin = () => {
     setIsLoggedIn(true);
   };
@@ -25,23 +25,8 @@ const App = () => {
     <div style={appStyles}>
       <BrowserRouter>
         <Routes>
-          <Route 
-            path="/" 
-            element={
-              <ChatPage 
-                isLoggedIn={isLoggedIn} 
-                onLogout={handleLogout} 
-              />
-            } 
-          />
-          <Route 
-            path="/login" 
-            element={
-              <LoginPage 
-                onLogin={handleLogin} 
-              />
-            } 
-          />
+          <Route path="/" element={<ChatPage isLoggedIn={isLoggedIn} onLogout={handleLogout} />} />
+          <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
         </Routes>
       </BrowserRouter>
     </div>
