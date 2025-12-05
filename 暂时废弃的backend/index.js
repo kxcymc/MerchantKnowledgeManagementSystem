@@ -1,1 +1,0 @@
-console.log('123456.pdf'.slice(0, -4));
