@@ -21,8 +21,10 @@ const vectorStoreMode = process.env.VECTOR_STORE_MODE || 'server';
 
 module.exports = {
   port: Number(process.env.PORT || 3001),
-  allowedOrigins: process.env.ALLOW_ORIGINS ? parseOrigins(process.env.ALLOW_ORIGINS) : ['http://localhost:5173'],
+  allowedOrigins: process.env.ALLOW_ORIGINS ? parseOrigins(process.env.ALLOW_ORIGINS) : ['http://localhost:5173', 'http://localhost:5555', 'http://localhost:5556'],
+  // DashScope 配置（与 ai-sdk-rag-starter 保持一致）
   dashScopeKey: process.env.DASHSCOPE_API_KEY || '',
+  dashScopeBaseUrl: process.env.DASHSCOPE_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
   // 阿里云 OCR API Key（使用 DashScope API，与 DASHSCOPE_API_KEY 相同）
   aliyunOcrApiKey: process.env.ALIYUN_OCR_API_KEY || process.env.DASHSCOPE_API_KEY || '',
   uploadDir: path.resolve(valueOrDefault(process.env.UPLOAD_DIR, path.join(rootDir, 'uploads'))),

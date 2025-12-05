@@ -1486,5 +1486,88 @@ router.get('/events', (req, res) => {
   });
 });
 
+// ============== RAG Chat API ==============
+const chatService = require('../services/chatService');
+
+/**
+ * POST /api/chat - RAG 对话接口（SSE 流式响应）
+ * 
+ * 请求体：
+ * {
+ *   "message": "用户问题",
+ *   "session_id": "会话ID（可选）",
+ *   "history": [
+ *     { "role": "user", "content": "之前的问题" },
+ *     { "role": "assistant", "content": "之前的回答" }
+ *   ]
+ * }
+ * 
+ * SSE 响应格式：
+ * data: {"type": "token", "content": "部分回答"}
+ * data: {"type": "done", "content": "完整回答", "references": [...]}
+ */
+router.post('/chat', async (req, res) => {
+  try {
+    const { message, session_id, history = [] } = req.body;
+
+    if (!message || typeof message !== 'string' || message.trim() === '') {
+      return res.status(400).json({ message: '消息内容不能为空' });
+    }
+
+    // 设置 SSE 响应头
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+
+    // 发送开始事件
+    res.write(`data: ${JSON.stringify({ type: 'start', session_id })}\n\n`);
+
+    // 调用 RAG Chat 服务
+    chatService.streamChat({
+      message: message.trim(),
+      history,
+      sessionId: session_id,
+      onToken: (token) => {
+        res.write(`data: ${JSON.stringify({ type: 'token', content: token })}\n\n`);
+      },
+      onDone: (result) => {
+        res.write(`data: ${JSON.stringify({ 
+          type: 'done', 
+          content: result.content,
+          references: result.references,
+          session_id: result.sessionId
+        })}\n\n`);
+        res.end();
+      },
+      onError: (error) => {
+        logger.error('Chat 接口错误', { error: error.message, session_id });
+        res.write(`data: ${JSON.stringify({ 
+          type: 'error', 
+          message: error.message || '服务暂时不可用，请稍后重试'
+        })}\n\n`);
+        res.end();
+      }
+    });
+
+    // 客户端断开连接时清理
+    req.on('close', () => {
+      logger.info('Chat 客户端断开连接', { session_id });
+    });
+
+  } catch (error) {
+    logger.error('Chat 接口异常', { error: error.message });
+    
+    // 如果还没发送 SSE 头，返回 JSON 错误
+    if (!res.headersSent) {
+      return res.status(500).json({ message: error.message });
+    }
+    
+    // 已经是 SSE 模式，发送错误事件
+    res.write(`data: ${JSON.stringify({ type: 'error', message: error.message })}\n\n`);
+    res.end();
+  }
+});
+
 module.exports = router;
 
