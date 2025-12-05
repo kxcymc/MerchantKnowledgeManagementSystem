@@ -3,16 +3,10 @@ import { Switch, Route, Redirect, useHistory } from 'react-router-dom';
 import { Layout, Menu, Breadcrumb, Spin } from '@arco-design/web-react';
 import cs from 'classnames';
 import {
-  IconDashboard,
-  IconList,
-  IconSettings,
   IconFile,
-  IconMessage,
   IconPenFill,
   IconApps,
   IconCheckCircle,
-  IconExclamationCircle,
-  IconUser,
   IconMenuFold,
   IconMenuUnfold,
 } from '@arco-design/web-react/icon';
@@ -21,9 +15,8 @@ import qs from 'query-string';
 import NProgress from 'nprogress';
 import Navbar from './components/NavBar';
 import Footer from './components/Footer';
-import useRoute, { IRoute } from '@/routes';
+import useRoute from '@/routes';
 import { isArray } from './utils/is';
-import useLocale from './utils/useLocale';
 import getUrlParams from './utils/getUrlParams';
 import lazyload from './utils/lazyload';
 import { GlobalState } from './store';
@@ -37,28 +30,14 @@ const Content = Layout.Content;
 
 function getIconFromKey(key) {
   switch (key) {
-    case 'dashboard':
-      return <IconDashboard className={styles.icon} />;
-    case 'list':
-      return <IconList className={styles.icon} />;
-    case 'form':
-      return <IconSettings className={styles.icon} />;
-    case 'profile':
-      return <IconFile className={styles.icon} />;
     case 'visualization':
       return <IconApps className={styles.icon} />;
     case 'result':
       return <IconCheckCircle className={styles.icon} />;
-    case 'exception':
-      return <IconExclamationCircle className={styles.icon} />;
-    case 'user':
-      return <IconUser className={styles.icon} />;
     case 'knowledge-creation':
       return <IconPenFill className={styles.icon} />;
     case 'knowledge-management':
       return <IconFile className={styles.icon} />;
-    case 'chatbot':
-      return <IconMessage className={styles.icon} />;
     default:
       return <div className={styles['icon-empty']} />;
   }
@@ -74,7 +53,15 @@ function getFlattenRoutes(routes) {
       );
       if (route.key && (!route.children || !visibleChildren.length)) {
         try {
-          route.component = lazyload(mod[`./pages/${route.key}/index.tsx`]);
+          if (
+            /merchant-onboarding|fund-settlement|business-growth/.test(route.key)
+          ) {
+            route.component = lazyload(
+              mod[`./pages/knowledge-management/knowledge-card/index.tsx`]
+            );
+          } else {
+            route.component = lazyload(mod[`./pages/${route.key}/index.tsx`]);
+          }
           res.push(route);
         } catch (e) {
           console.log(route.key);
@@ -96,26 +83,23 @@ function PageLayout() {
   const history = useHistory();
   const pathname = history.location.pathname;
   const currentComponent = qs.parseUrl(pathname).url.slice(1);
-  const locale = useLocale();
-  const { settings, userLoading, userInfo } = useSelector(
+  const { settings, userLoading, } = useSelector(
     (state: GlobalState) => state
   );
 
-  const [routes, defaultRoute] = useRoute(userInfo?.permissions);
+  const [routes, defaultRoute] = useRoute();
   const defaultSelectedKeys = [currentComponent || defaultRoute];
   const paths = (currentComponent || defaultRoute).split('/');
   const defaultOpenKeys = paths.slice(0, paths.length - 1);
 
   const [breadcrumb, setBreadCrumb] = useState([]);
-  const [collapsed, setCollapsed] = useState<boolean>(false);
-  const [selectedKeys, setSelectedKeys] =
-    useState<string[]>(defaultSelectedKeys);
-  const [openKeys, setOpenKeys] = useState<string[]>(defaultOpenKeys);
+  const [collapsed, setCollapsed] = useState(false);
+  const [selectedKeys, setSelectedKeys] = useState(defaultSelectedKeys);
+  const [openKeys, setOpenKeys] = useState(defaultOpenKeys);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
-  const routeMap = useRef<Map<string, React.ReactNode[]>>(new Map());
-  const menuMap = useRef<
-    Map<string, { menuItem?: boolean; subMenu?: boolean }>
-  >(new Map());
+  const routeMap = useRef(new Map());
+  const menuMap = useRef(new Map());
 
   const navbarHeight = 60;
   const menuWidth = collapsed ? 48 : settings.menuWidth;
@@ -141,19 +125,19 @@ function PageLayout() {
     setCollapsed((collapsed) => !collapsed);
   }
 
-  const paddingLeft = showMenu ? { paddingLeft: menuWidth } : {};
-  const paddingTop = showNavbar ? { paddingTop: navbarHeight } : {};
+  const paddingLeft = showMenu && !isFullscreen ? { paddingLeft: menuWidth } : {};
+  const paddingTop = showNavbar && !isFullscreen ? { paddingTop: navbarHeight } : {};
   const paddingStyle = { ...paddingLeft, ...paddingTop };
 
-  function renderRoutes(locale) {
+  function renderRoutes() {
     routeMap.current.clear();
-    return function travel(_routes: IRoute[], level, parentNode = []) {
+    return function travel(_routes, level, parentNode = []) {
       return _routes.map((route) => {
         const { breadcrumb = true, ignore } = route;
         const iconDom = getIconFromKey(route.key);
         const titleDom = (
           <>
-            {iconDom} {locale[route.name] || route.name}
+            {iconDom} {route.name}
           </>
         );
 
@@ -170,13 +154,11 @@ function PageLayout() {
               breadcrumb ? [...parentNode, route.name, child.name] : []
             );
           }
-
           return !ignore;
         });
 
-        if (ignore) {
-          return '';
-        }
+        if (ignore) return '';
+
         if (visibleChildren.length) {
           menuMap.current.set(route.key, { subMenu: true });
           return (
@@ -185,6 +167,7 @@ function PageLayout() {
             </SubMenu>
           );
         }
+
         menuMap.current.set(route.key, { menuItem: true });
         return <MenuItem key={route.key}>{titleDom}</MenuItem>;
       });
@@ -193,15 +176,13 @@ function PageLayout() {
 
   function updateMenuStatus() {
     const pathKeys = pathname.split('/');
-    const newSelectedKeys: string[] = [];
-    const newOpenKeys: string[] = [...openKeys];
+    const newSelectedKeys = [];
+    const newOpenKeys = [...openKeys];
     while (pathKeys.length > 0) {
       const currentRouteKey = pathKeys.join('/');
       const menuKey = currentRouteKey.replace(/^\//, '');
       const menuType = menuMap.current.get(menuKey);
-      if (menuType && menuType.menuItem) {
-        newSelectedKeys.push(menuKey);
-      }
+      if (menuType && menuType.menuItem) newSelectedKeys.push(menuKey);
       if (menuType && menuType.subMenu && !openKeys.includes(menuKey)) {
         newOpenKeys.push(menuKey);
       }
@@ -215,22 +196,24 @@ function PageLayout() {
     const routeConfig = routeMap.current.get(pathname);
     setBreadCrumb(routeConfig || []);
     updateMenuStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
   return (
     <Layout className={styles.layout}>
       <div
         className={cs(styles['layout-navbar'], {
-          [styles['layout-navbar-hidden']]: !showNavbar,
+          [styles['layout-navbar-hidden']]: !showNavbar || isFullscreen,
         })}
       >
-        <Navbar show={showNavbar} />
+        <Navbar show={showNavbar && !isFullscreen} isFullscreen={isFullscreen} onFullscreenChange={setIsFullscreen} />
       </div>
+
       {userLoading ? (
         <Spin className={styles['spin']} />
       ) : (
         <Layout>
-          {showMenu && (
+          {showMenu && !isFullscreen && (
             <Sider
               className={styles['layout-sider']}
               width={menuWidth}
@@ -247,11 +230,9 @@ function PageLayout() {
                   onClickMenuItem={onClickMenuItem}
                   selectedKeys={selectedKeys}
                   openKeys={openKeys}
-                  onClickSubMenu={(_, openKeys) => {
-                    setOpenKeys(openKeys);
-                  }}
+                  onClickSubMenu={(_, openKeys) => setOpenKeys(openKeys)}
                 >
-                  {renderRoutes(locale)(routes, 1)}
+                  {renderRoutes()(routes, 1)}
                 </Menu>
               </div>
               <div className={styles['collapse-btn']} onClick={toggleCollapse}>
@@ -259,6 +240,7 @@ function PageLayout() {
               </div>
             </Sider>
           )}
+
           <Layout className={styles['layout-content']} style={paddingStyle}>
             <div className={styles['layout-content-wrapper']}>
               {!!breadcrumb.length && (
@@ -266,33 +248,42 @@ function PageLayout() {
                   <Breadcrumb>
                     {breadcrumb.map((node, index) => (
                       <Breadcrumb.Item key={index}>
-                        {typeof node === 'string' ? locale[node] || node : node}
+                        {node}
                       </Breadcrumb.Item>
                     ))}
                   </Breadcrumb>
                 </div>
               )}
+
               <Content>
                 <Switch>
                   {flattenRoutes.map((route, index) => {
+                    const Component = route.component;
+                    const extraProps = route.props;
+
                     return (
                       <Route
                         key={index}
                         path={`/${route.key}`}
-                        component={route.component}
+                        render={(routeProps) => (
+                          <Component {...routeProps} {...(extraProps ? { scene: extraProps } : {})} />
+                        )}
                       />
                     );
                   })}
+
                   <Route exact path="/">
                     <Redirect to={`/${defaultRoute}`} />
                   </Route>
+
                   <Route
                     path="*"
-                    component={lazyload(() => import('./pages/exception/403'))}
+                    component={lazyload(() => import('./pages/exception/404'))}
                   />
                 </Switch>
               </Content>
             </div>
+
             {showFooter && <Footer />}
           </Layout>
         </Layout>

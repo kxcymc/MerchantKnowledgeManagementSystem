@@ -1,63 +1,164 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Typography, Table, Button, Tag, Popconfirm, Message } from '@arco-design/web-react';
-import useLocale from '@/utils/useLocale';
-import locale from '../locale';
-
-type Knowledge = {
-    knowledge_id: string;
-    title: string;
-    scene_id: string;
-    type: string;
-    file_size: string;
-    created_at: string;
-    status: string;
-};
+import {
+    Card,
+    Typography,
+    Table,
+    Button,
+    Tag,
+    Message,
+    Modal,
+    PaginationProps,
+    Space
+} from '@arco-design/web-react';
+import { IconPlus } from '@arco-design/web-react/icon';
+import { knowledgeList, KnowledgeDoc } from '@/constant';
+import { useHistory } from 'react-router-dom';
+import SearchForm from './form';
+import styles from './style/index.module.less';
 
 export default function KnowledgeAll() {
-    const t = useLocale(locale);
-    const [data, setData] = useState<Knowledge[]>([]);
+    const [data, setData] = useState<KnowledgeDoc[]>(knowledgeList);
+    const [loading, setLoading] = useState(true);
+    const [pagination, setPagination] = useState<PaginationProps>({
+        sizeCanChange: true,
+        showTotal: true,
+        pageSize: 10,
+        current: 1,
+        pageSizeChangeResetCurrent: true,
+    });
+    const [formParams, setFormParams] = useState({});
+    const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
+    const history = useHistory();
 
     const fetchList = async () => {
+        setLoading(true);
         try {
-            const res = await fetch('/api/knowledge');
+            const { current, pageSize } = pagination;
+            const query = new URLSearchParams({
+                page: String(current),
+                pageSize: String(pageSize),
+                ...formParams
+            }).toString();
+
+            const res = await fetch(`/api/knowledge?${query}`);
             const json = await res.json();
             if (json && json.data) {
                 setData(json.data);
+                if (json.total) {
+                    setPagination((prev) => ({ ...prev, total: json.total }));
+                }
             }
         } catch (err) {
             console.error(err);
+        } finally {
+            setLoading(false);
         }
     };
 
     useEffect(() => {
         fetchList();
-    }, []);
+    }, [pagination.current, pagination.pageSize, JSON.stringify(formParams)]);
 
-    const handleDelete = async (id: string) => {
-        try {
-            const res = await fetch(`/api/knowledge/${id}`, { method: 'DELETE' });
-            const json = await res.json();
-            if (json.code === 0) {
-                Message.success('删除成功');
-                setData((prev) => prev.filter((i) => i.knowledge_id !== id));
-            } else {
-                Message.error('删除失败');
-            }
-        } catch (err) {
-            Message.error('删除出错');
+    const handleBatchDelete = () => {
+        if (selectedRowKeys.length === 0) {
+            Message.warning('请先选择要删除的文件');
+            return;
         }
+
+        const del = async () => {
+            try {
+                const deletePromises = selectedRowKeys.map(id => 
+                    fetch(`/api/knowledge/${id}`, { method: 'DELETE' })
+                );
+                const results = await Promise.all(deletePromises);
+                const allSuccess = results.every(res => res.ok);
+                
+                if (allSuccess) {
+                    Message.success(`成功删除 ${selectedRowKeys.length} 个文件`);
+                    setData((prev) => prev.filter((i) => !selectedRowKeys.includes(i.knowledge_id)));
+                    setSelectedRowKeys([]);
+                } else {
+                    Message.error('部分文件删除失败');
+                }
+            } catch (err) {
+                Message.error('删除出错');
+            }
+        };
+
+        Modal.confirm({
+            title: '二次确认',
+            content: (
+                <div style={{ textAlign: 'center' }}>
+                    {`确定要删除选中的 ${selectedRowKeys.length} 个文件吗？`}
+                </div>
+            ),
+            onOk: del,
+        });
     };
+
+    function onChangeTable(pagination) {
+        setPagination(pagination);
+    }
+
+    function handleSearch(params) {
+        setPagination({ ...pagination, current: 1 });
+        setFormParams(params);
+    }
+
+    function previewKnowledge(id: number, type: string, url = '') {
+        if (type === 'PDF') {
+            if (url) window.open(url, '_blank');
+            else
+                Modal.info({
+                    title: '该PDF不支持预览'
+                })
+        } else {
+            history.push(`/knowledge-management/RichTextPreview?knowledge_id=${id.toString()}`)
+        }
+    }
+
+    const goEditPage = (id: number, title: string, type: string) => {
+        history.push(`/knowledge-management/edit?knowledge_id=${id.toString()}&title=${title}&type=${type}`)
+    }
 
     const columns = [
         {
-            title: '标题',
+            title: '文档标题',
             dataIndex: 'title',
-            render: (col, row) => <a>{col}</a>,
+            render: (col) => <Typography.Text copyable>{col}</Typography.Text>,
         },
-        { title: '场景', dataIndex: 'scene_id' },
-        { title: '类型', dataIndex: 'type' },
-        { title: '大小', dataIndex: 'file_size' },
-        { title: '创建时间', dataIndex: 'created_at' },
+        { title: '所属业务', dataIndex: 'business' },
+        {
+            title: '所属场景',
+            dataIndex: 'scene',
+            render: (scene) => (
+                <>{scene ? scene : '在该业务下通用'}</>
+            )
+        },
+        { title: '文档类型', dataIndex: 'type' },
+        {
+            title: '文档大小',
+            dataIndex: 'file_size',
+            sorter: (a, b) => {
+                const toBytes = (sizeStr) => {
+                    const match = sizeStr.toString().trim().match(/^([\d.]+)\s*([a-zA-Z]+)$/);
+                    if (!match) return parseFloat(sizeStr) || 0;
+
+                    const num = parseFloat(match[1]);
+                    const unit = match[2].toLowerCase();
+
+                    const units = { b: 1, kb: 1024, mb: 1024 ** 2, gb: 1024 ** 3, tb: 1024 ** 4 };
+                    return num * (units[unit] || 1);
+                };
+
+                return toBytes(a.file_size) - toBytes(b.file_size);
+            }
+        },
+        {
+            title: '创建时间',
+            dataIndex: 'created_at',
+            sorter: (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+        },
         {
             title: '状态',
             dataIndex: 'status',
@@ -70,40 +171,40 @@ export default function KnowledgeAll() {
             dataIndex: 'op',
             render: (_, row) => (
                 <>
-                    <Button type="text" onClick={() => window.location.pathname = '/knowledge-creation'}>编辑</Button>
-                    <Popconfirm
-                        title="确认删除？"
-                        onOk={() => handleDelete(row.knowledge_id)}
-                    >
-                        <Button type="text" status="danger">删除</Button>
-                    </Popconfirm>
+                    <Button type='secondary' onClick={() => previewKnowledge(row.knowledge_id, row.type, row.pdf_url)}>预览</Button>
+                    <Button type="text" onClick={() => goEditPage(row.knowledge_id, row.title, row.type)}>编辑</Button>
                 </>
             ),
         },
     ];
 
     return (
-        <div style={{ padding: 24 }}>
-            <Card>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                        <Typography.Title heading={5} style={{ marginTop: 0 }}>
-                            {t['knowledgeManagement.all.title']}
-                        </Typography.Title>
-                        <Typography.Paragraph>{t['knowledgeManagement.all.desc']}</Typography.Paragraph>
-                    </div>
-                    <div>
-                        <Button type="primary" onClick={() => (window.location.pathname = '/knowledge-creation')}>新建知识</Button>
-                    </div>
-                </div>
-
-                <Table
-                    style={{ marginTop: 16 }}
-                    rowKey="knowledge_id"
-                    data={data}
-                    columns={columns}
-                />
-            </Card>
-        </div>
+        <Card>
+            <SearchForm onSearch={handleSearch} />
+            <div className={styles['button-group']}>
+                <Space>
+                    <Button type="primary" icon={<IconPlus />} onClick={() => history.push('/knowledge-creation')}>
+                        新建知识
+                    </Button>
+                </Space>
+                <Space>
+                    <Button type="outline" status='danger' onClick={handleBatchDelete}>
+                        删除
+                    </Button>
+                </Space>
+            </div>
+            <Table
+                rowKey="knowledge_id"
+                loading={loading}
+                onChange={onChangeTable}
+                pagination={pagination}
+                data={data}
+                columns={columns}
+                rowSelection={{
+                    selectedRowKeys,
+                    onChange: (keys) => setSelectedRowKeys(keys as string[]),
+                }}
+            />
+        </Card>
     );
 }

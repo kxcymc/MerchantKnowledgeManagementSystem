@@ -19,10 +19,10 @@ body {
     'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: $bg-primary;
-  color: $text-primary;
-  font-size: $font-size-base;
-  line-height: $line-height-normal;
+  background-color: #ffffff;
+  color: #1f2937;
+  font-size: 16px;
+  line-height: 1.5;
 }
 
 code,
@@ -31,12 +31,12 @@ pre {
 }
 
 a {
-  color: $primary-color;
+  color: #165dff;
   text-decoration: none;
-  transition: $transition-base;
+  transition: all 0.3s ease;
 
   &:hover {
-    color: $primary-dark;
+    color: #0e42d2;
   }
 }
 
@@ -58,14 +58,14 @@ select {
 }
 
 ::-webkit-scrollbar-track {
-  background: $bg-secondary;
+  background: #f9fafb;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: $text-tertiary;
-  border-radius: $radius-md;
+  background: #d1d5db;
+  border-radius: 8px;
 
   &:hover {
-    background: $text-secondary;
+    background: #6b7280;
   }
 }

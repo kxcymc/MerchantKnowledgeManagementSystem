@@ -19,7 +19,6 @@ interface ChatInputProps {
 
 export const ChatInput: React.FC<ChatInputProps> = memo(
   ({ inputValue, setInputValue, handleKeyDown, handleSend, minimized = false }) => {
-
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
@@ -37,7 +36,7 @@ export const ChatInput: React.FC<ChatInputProps> = memo(
         return;
       }
 
-      newFiles.forEach(file => {
+      newFiles.forEach((file) => {
         if (file.size > MAX_FILE_SIZE) {
           Notification.error({
             title: '文件过大',
@@ -49,11 +48,11 @@ export const ChatInput: React.FC<ChatInputProps> = memo(
       });
 
       if (validFiles.length > 0) {
-        setSelectedFiles(prevFiles => [...prevFiles, ...validFiles]);
+        setSelectedFiles((prevFiles) => [...prevFiles, ...validFiles]);
         Notification.info({
           title: '文件已上传',
           content: `已上传 ${validFiles.length} 个文件。`,
-          duration: 3000
+          duration: 3000,
         });
       }
 
@@ -61,9 +60,7 @@ export const ChatInput: React.FC<ChatInputProps> = memo(
     };
 
     const handleRemoveFile = (indexToRemove: number) => {
-      setSelectedFiles(prevFiles =>
-        prevFiles.filter((_, index) => index !== indexToRemove)
-      );
+      setSelectedFiles((prevFiles) => prevFiles.filter((_, index) => index !== indexToRemove));
     };
 
     const unifiedHandleSend = () => {
@@ -73,14 +70,16 @@ export const ChatInput: React.FC<ChatInputProps> = memo(
       } else if (inputValue.trim()) {
         handleSend();
       }
-    }
+    };
 
     const isSendDisabled = !inputValue.trim() && selectedFiles.length === 0;
     const isScrollablePreview = selectedFiles.length > 6;
 
     return (
-      <div className={`${styles.chatInputWrapper} ${minimized ? styles.minimized : 'null'}`}
-        style={selectedFiles.length > 0 ? { minHeight: '200px' } : { minHeight: '150px' }}>
+      <div
+        className={`${styles.chatInputWrapper} ${minimized ? styles.minimized : 'null'}`}
+        style={selectedFiles.length > 0 ? { minHeight: '200px' } : { minHeight: '150px' }}
+      >
         <input
           type="file"
           ref={fileInputRef}
@@ -91,30 +90,46 @@ export const ChatInput: React.FC<ChatInputProps> = memo(
         />
 
         <div className={styles.innerScrollContent}>
-        {selectedFiles.length > 0 && (
-          <div className={`${styles.chatPreview} ${isScrollablePreview ? styles.scrollablePreview : ''}`}>
-            {selectedFiles.map((file, index) => (
-              <span key={index} className={styles.previewTag}>
-                <span className={styles.tagName} title={`文件: ${file.name}`}>{`文件: ${file.name}`}</span>
-                <IconClose
-                  className={styles.removeIcon}
-                  onClick={() => handleRemoveFile(index)}
-                />
-              </span>
-            ))}
-          </div>
-        )}
+          {selectedFiles.length > 0 && (
+            <div
+              className={`${styles.chatPreview} ${isScrollablePreview ? styles.scrollablePreview : ''}`}
+            >
+              {selectedFiles.map((file, index) => (
+                <span key={index} className={styles.previewTag}>
+                  <span
+                    className={styles.tagName}
+                    title={`文件: ${file.name}`}
+                  >{`文件: ${file.name}`}</span>
+                  <IconClose
+                    className={styles.removeIcon}
+                    onClick={() => handleRemoveFile(index)}
+                  />
+                </span>
+              ))}
+            </div>
+          )}
 
-        {isScrollablePreview && <div className={styles.previewDivider} />}
+          {isScrollablePreview && <div className={styles.previewDivider} />}
 
-        <Input.TextArea
-          placeholder={selectedFiles.length > 0 && inputValue.trim().length === 0 ? '用抖音商家知识库解读附件内容' : "输入您的问题，支持附件上传"}
-          value={inputValue}
-          onChange={setInputValue}
-          onKeyDown={(e) => handleKeyDown(e, selectedFiles)}
-          autoSize={{ minRows: minimized ? 1 : 3, maxRows: 20 }}
-          className={styles.chatInputTextarea}
-        />
+          <Input.TextArea
+            placeholder={
+              selectedFiles.length > 0 && inputValue.trim().length === 0
+                ? '用抖音商家知识库解读附件内容'
+                : '输入您的问题，支持附件上传'
+            }
+            value={inputValue}
+            onChange={setInputValue}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                unifiedHandleSend();
+              } else {
+                handleKeyDown(e, selectedFiles);
+              }
+            }}
+            autoSize={{ minRows: minimized ? 1 : 3, maxRows: 20 }}
+            className={styles.chatInputTextarea}
+          />
         </div>
 
         <div className={styles.chatToolbar}>
@@ -135,7 +150,6 @@ export const ChatInput: React.FC<ChatInputProps> = memo(
           </div>
 
           <div className={styles.toolbarGroupRight}>
-
             {/* <Tooltip content="语音输入">
                  <Button icon={<IconVoice />} shape="circle" className={styles.toolbarButton} />
             </Tooltip>

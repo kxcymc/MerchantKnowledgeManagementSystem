@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Input, Checkbox, Message, Link } from '@arco-design/web-react';
-import { IconUser, IconLock,  } from '@arco-design/web-react/icon';
+import { IconUser, IconLock } from '@arco-design/web-react/icon';
 import styles from './index.module.scss';
 import LoginSVG from '@/assets/login.svg';
 

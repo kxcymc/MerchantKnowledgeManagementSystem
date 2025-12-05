@@ -44,9 +44,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const getDropList = (sessionId: string) => (
-    <div className={styles.menuContainer}>
+    <div className={styles.dropContainer}>
       <div
-        className={styles.menuItem}
+        className={styles.dropItem}
         onClick={(e) => {
           e.stopPropagation();
           handleDeleteClick(e, sessionId);
@@ -138,11 +138,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => onSessionSelect(session.id)}
                 className={`
                         ${styles.sessionItem}
-                        ${
-                          activeSessionId === session.id
-                            ? styles['sessionItem--active']
-                            : styles['sessionItem--inactive']
-                        }
+                        ${activeSessionId === session.id
+                    ? styles['sessionItem--active']
+                    : styles['sessionItem--inactive']
+                  }
                     `}
               >
                 <IconMessage
@@ -150,15 +149,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 />
                 <span className={styles.sessionTitle}>{session.title}</span>
                 {activeSessionId === session.id && (
-                  <Dropdown
-                    droplist={getDropList(session.id)}
-                    position="br"
-                    trigger="click"
-                  >
-                    <IconMore
-                      className={styles.moreIcon}
-                      onClick={(e) => e.stopPropagation()}
-                    />
+                  <Dropdown droplist={getDropList(session.id)} position="br" trigger="click">
+                    <IconMore className={styles.moreIcon} onClick={(e) => e.stopPropagation()} />
                   </Dropdown>
                 )}
               </div>
