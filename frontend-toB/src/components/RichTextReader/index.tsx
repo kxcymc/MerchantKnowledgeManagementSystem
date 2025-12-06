@@ -268,7 +268,7 @@ const RichTextReader: FC<RichTextReaderProps> = ({
 
 
             <Slate
-                key={currentPageIndex}
+                key={`${currentPageIndex}-${value ? 'loaded' : 'empty'}-${pages.length}`} // 强制重新渲染当数据加载完成
                 editor={editor}
                 initialValue={pages[currentPageIndex] || [{ type: 'paragraph', children: [{ text: '' }] }]}
             >

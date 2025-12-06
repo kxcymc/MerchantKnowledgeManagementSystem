@@ -2,10 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Grid, Card, Input, Space, Button, Message, Modal } from '@arco-design/web-react';
 import { IconPlus } from '@arco-design/web-react/icon';
 import KnowledgeCard from './KnowledgeCard';
-import { knowledgeList } from '@/constant';
+import { getKnowledgeList } from '@/api';
 import styles from './style/index.module.less';
 import { useLocation, useHistory } from 'react-router-dom';
 import { RouteMap } from '@/constant';
+import { deleteKnowledge as deleteKnowledgeApi } from '@/api';
 
 
 const { Row, Col } = Grid;
@@ -32,14 +33,28 @@ const Index: React.FC = () => {
     }, [pathname])
 
     useEffect(() => {
-        setFileList(knowledgeList.filter((d) => {
-            if (sceneName && businessName) {
-                return d.business === businessName && d.scene === sceneName
+        const fetchData = async () => {
+            if (!businessName) return;
+            
+            try {
+                const params: any = {
+                    business: businessName
+                };
+                if (sceneName) {
+                    params.scene = sceneName;
+                }
+                
+                const res = await getKnowledgeList(params);
+                if (res && res.data) {
+                    setFileList(res.data);
+                }
+            } catch (error) {
+                console.error('Fetch knowledge list failed', error);
+                Message.error('获取知识列表失败');
             }
-            if (businessName && !sceneName) {
-                return d.business === businessName
-            }
-        }))
+        };
+
+        fetchData();
     }, [businessName, sceneName])
 
     const goEditPage = (id: number, title: string, type: string) => {
@@ -49,15 +64,11 @@ const Index: React.FC = () => {
     const deleteKnowledge = (id: number, title: string) => {
         const del = async () => {
             try {
-                // const res = await fetch(`/api/knowledge/${id}`, { method: 'DELETE' });
-                // const json = await res.json();
-                // if (json.code === 0) {
-                //     Message.success('删除成功');
-                //     setData((prev) => prev.filter((i) => i.knowledge_id !== id));
-                // } else {
-                //     Message.error('删除失败');
-                // }
+                await deleteKnowledgeApi({ knowledge_id: id });
+                Message.success('删除成功');
+                setFileList((prev) => prev.filter((i) => i.knowledge_id !== id));
             } catch (err) {
+                console.error(err);
                 Message.error('删除出错');
             }
         }
@@ -82,7 +93,7 @@ const Index: React.FC = () => {
         } else {
             history.push(`/knowledge-creation`)
         }
-    }
+    }    
 
     return (
         <div className={styles.container} style={{ padding: 24 }}>

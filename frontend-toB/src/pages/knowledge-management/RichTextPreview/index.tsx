@@ -2,9 +2,11 @@ import React, { useContext, useEffect } from "react";
 import { useHistory, useLocation } from 'react-router-dom';
 import styles from './style/index.module.less';
 import RichTextReader from "@/components/RichTextReader";
-import { RICH_TEXT_MULTIPLE_DATA, RICH_TEXT_SINGLE_DATA } from "@/constant";
+import { RICH_TEXT_MULTIPLE_DATA, RICH_TEXT_SINGLE_DATA, EMPTY_DOCUMENT } from "@/constant";
 import { Button, Modal } from "@arco-design/web-react";
 import { GlobalContext } from '@/context';
+import { getKnowledgeDetail } from '@/api';
+import type { Descendant } from 'slate';
 
 
 const RichTextPreview = () => {
@@ -16,7 +18,29 @@ const RichTextPreview = () => {
         history.replace(`expection/404?errRoute=${encodeURIComponent(JSON.stringify([location.pathname, location.search].join('')))}`);
     }
 
+    const [content, setContent] = React.useState<Descendant[]>(EMPTY_DOCUMENT);
+
     useEffect(() => {
+        if (knowledgeIdParam) {
+            getKnowledgeDetail({ knowledge_id: Number(knowledgeIdParam) })
+                .then(res => {
+                    if (res.data && res.data.content) {
+                        let contentData = res.data.content;
+                        if (typeof contentData === 'string') {
+                            try {
+                                contentData = JSON.parse(contentData);
+                            } catch (e) {
+                                console.error('Parse content error', e);
+                            }
+                        }
+                        setContent(contentData);
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                });
+        }
+
         if (theme==='dark'){
             Modal.confirm({
                 title: '建议',
@@ -29,7 +53,7 @@ const RichTextPreview = () => {
                 onOk: () => setTheme('light'),
             });
         }
-    }, [])
+    }, [knowledgeIdParam])
     const handleBack = () => {
         if (history.length > 1) {
             history.goBack();
@@ -43,7 +67,10 @@ const RichTextPreview = () => {
                 返回
             </Button>
             {/* <RichTextReader value={RICH_TEXT_SINGLE_DATA} showNavBtn={false}></RichTextReader> */}
-            <RichTextReader value={RICH_TEXT_MULTIPLE_DATA}></RichTextReader>
+            <RichTextReader 
+                value={content} 
+                showNavBtn={Array.isArray(content) && Array.isArray(content[0]) && content.length > 1}
+            />
         </div>
     );
 }

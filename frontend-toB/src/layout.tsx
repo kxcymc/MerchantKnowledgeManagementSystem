@@ -5,7 +5,7 @@ import cs from 'classnames';
 import {
   IconFile,
   IconPenFill,
-  IconApps,
+  // IconApps,
   IconCheckCircle,
   IconMenuFold,
   IconMenuUnfold,
@@ -30,8 +30,8 @@ const Content = Layout.Content;
 
 function getIconFromKey(key) {
   switch (key) {
-    case 'visualization':
-      return <IconApps className={styles.icon} />;
+    // case 'visualization':
+    //   return <IconApps className={styles.icon} />;
     case 'result':
       return <IconCheckCircle className={styles.icon} />;
     case 'knowledge-creation':
@@ -125,7 +125,7 @@ function PageLayout() {
     setCollapsed((collapsed) => !collapsed);
   }
 
-  const paddingLeft = showMenu && !isFullscreen ? { paddingLeft: menuWidth } : {};
+  const paddingLeft = showMenu ? { paddingLeft: menuWidth } : {};
   const paddingTop = showNavbar && !isFullscreen ? { paddingTop: navbarHeight } : {};
   const paddingStyle = { ...paddingLeft, ...paddingTop };
 
@@ -199,6 +199,11 @@ function PageLayout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
+  useEffect(()=>{
+    if(isFullscreen) setCollapsed(true);
+    else setCollapsed(false);
+  },[isFullscreen])
+
   return (
     <Layout className={styles.layout}>
       <div
@@ -213,7 +218,7 @@ function PageLayout() {
         <Spin className={styles['spin']} />
       ) : (
         <Layout>
-          {showMenu && !isFullscreen && (
+          {showMenu  && (
             <Sider
               className={styles['layout-sider']}
               width={menuWidth}

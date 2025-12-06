@@ -3,7 +3,7 @@ import { Descendant } from 'slate';
 import { CustomElement } from "@/components/RichTextEditor";
 
 
-export const emptyData = [
+export const EMPTY_DOCUMENT: Descendant[] = [
     {
       "type": "paragraph",
       "children": [{"text": ""}]

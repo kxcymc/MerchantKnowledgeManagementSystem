@@ -55,7 +55,7 @@ async function queryKnowledge(params = {}) {
       bs.business,
       bs.scene
     FROM Knowledge k
-    LEFT JOIN BusinessScene bs ON k.scene_id = bs.scene_id
+    LEFT JOIN BusinessScene bs ON k.business_id = bs.business_id
     WHERE 1=1
   `;
   
@@ -102,27 +102,35 @@ async function queryKnowledge(params = {}) {
   }
 }
 
-// 根据business和scene获取scene_id，如果不存在则创建
-async function getOrCreateSceneId(business, scene) {
-  if (!business || !scene) {
-    throw new Error('business 和 scene 不能为空');
+// 根据business和scene获取business_id
+async function getBusinessId(business, scene) {
+  if (!business) {
+    throw new Error('business 不能为空');
   }
 
-  // 先查询是否存在
-  let sql = `SELECT scene_id FROM BusinessScene WHERE business = ? AND scene = ? LIMIT 1`;
-  let [rows] = await pool.execute(sql, [business, scene]);
+  // 构造查询条件
+  // 如果 scene 存在，则查询 business + scene
+  // 如果 scene 不存在（null/undefined/空字符串），则查询 business + (scene IS NULL OR scene = '')
+  // 注意：数据库中 scene 字段可能为 NULL
+  
+  let sql;
+  let params;
+
+  if (scene) {
+    sql = `SELECT business_id FROM BusinessScene WHERE business = ? AND scene = ? LIMIT 1`;
+    params = [business, scene];
+  } else {
+    sql = `SELECT business_id FROM BusinessScene WHERE business = ? AND (scene IS NULL OR scene = '') LIMIT 1`;
+    params = [business];
+  }
+
+  const [rows] = await pool.execute(sql, params);
 
   if (rows.length > 0) {
-    return rows[0].scene_id;
+    return rows[0].business_id;
   }
 
-  // 不存在则创建
-  const sceneId = `scene_${Date.now()}`;
-  sql = `INSERT INTO BusinessScene (business, scene_id, scene) VALUES (?, ?, ?)`;
-  await pool.execute(sql, [business, sceneId, scene]);
-  
-  logger.info('创建新场景', { business, scene, sceneId });
-  return sceneId;
+  throw new Error(`未找到对应的业务场景: ${business} - ${scene || '无'}`);
 }
 
 // 插入知识库记录
@@ -145,8 +153,8 @@ async function insertKnowledge(data) {
     throw new Error('type 不能为空');
   }
 
-  // 获取或创建scene_id
-  const sceneId = await getOrCreateSceneId(business, scene);
+  // 获取 business_id
+  const businessId = await getBusinessId(business, scene);
 
   // 将content转为JSON字符串（如果是对象）
   let contentJson = content;
@@ -155,13 +163,13 @@ async function insertKnowledge(data) {
   }
 
   const sql = `
-    INSERT INTO Knowledge (scene_id, type, file_url, file_size, title, content, status)
+    INSERT INTO Knowledge (business_id, type, file_url, file_size, title, content, status)
     VALUES (?, ?, ?, ?, ?, ?, '生效中')
   `;
 
   try {
     const [result] = await pool.execute(sql, [
-      sceneId,
+      businessId,
       type,
       file_url,
       file_size,
@@ -209,7 +217,7 @@ async function getKnowledgeById(knowledgeId) {
   const sql = `
     SELECT 
       k.knowledge_id,
-      k.scene_id,
+      k.business_id,
       k.type,
       k.file_size,
       k.file_url,
@@ -222,7 +230,7 @@ async function getKnowledgeById(knowledgeId) {
       bs.business,
       bs.scene
     FROM Knowledge k
-    LEFT JOIN BusinessScene bs ON k.scene_id = bs.scene_id
+    LEFT JOIN BusinessScene bs ON k.business_id = bs.business_id
     WHERE k.knowledge_id = ?
   `;
 
@@ -304,10 +312,15 @@ async function updateKnowledge(knowledgeId, updates) {
     const newBusiness = business || current.business;
     const newScene = scene || current.scene;
     
-    if (newBusiness && newScene) {
-      const sceneId = await getOrCreateSceneId(newBusiness, newScene);
-      setFields.push('scene_id = ?');
-      values.push(sceneId);
+    if (newBusiness) {
+      // 即使 scene 没变，也需要重新查询 business_id，因为 business 变了
+      // 或者 scene 变了，也需要重新查询
+      // 这里简化逻辑：只要 business 或 scene 有值（在 updates 中），就重新计算 business_id
+      // 但需要注意 updates 中可能只传了其中一个，另一个需要从 current 中取
+      
+      const businessId = await getBusinessId(newBusiness, newScene);
+      setFields.push('business_id = ?');
+      values.push(businessId);
     }
   }
 
@@ -346,39 +359,7 @@ async function deleteKnowledge(knowledgeId) {
   }
 }
 
-// 如果某个 scene_id 已经没有任何 Knowledge 使用，则删除对应的 BusinessScene 记录
-async function deleteSceneIfUnused(sceneId) {
-  if (!sceneId) {
-    return false;
-  }
 
-  try {
-    const [rows] = await pool.execute(
-      'SELECT COUNT(*) AS cnt FROM Knowledge WHERE scene_id = ?',
-      [sceneId]
-    );
-    const count = rows[0]?.cnt ?? 0;
-
-    if (count > 0) {
-      // 仍然有知识引用该场景，不能删除
-      return false;
-    }
-
-    const [result] = await pool.execute(
-      'DELETE FROM BusinessScene WHERE scene_id = ?',
-      [sceneId]
-    );
-    if (result.affectedRows > 0) {
-      logger.info('删除未被使用的业务场景记录成功', { sceneId });
-      return true;
-    }
-
-    return false;
-  } catch (error) {
-    logger.error('删除业务场景记录失败', { error: error.message, sceneId });
-    throw error;
-  }
-}
 
 // 增加引用次数
 async function incrementReferNum(knowledgeId) {
@@ -396,7 +377,7 @@ async function getKnowledgeByTitle(title) {
   const sql = `
     SELECT 
       k.knowledge_id,
-      k.scene_id,
+      k.business_id,
       k.type,
       k.file_size,
       k.file_url,
@@ -409,7 +390,7 @@ async function getKnowledgeByTitle(title) {
       bs.business,
       bs.scene
     FROM Knowledge k
-    LEFT JOIN BusinessScene bs ON k.scene_id = bs.scene_id
+    LEFT JOIN BusinessScene bs ON k.business_id = bs.business_id
     WHERE k.title = ?
     ORDER BY k.created_at DESC
     LIMIT 1
@@ -449,7 +430,6 @@ module.exports = {
   updateKnowledge,
   deleteKnowledge,
   incrementReferNum,
-  getOrCreateSceneId,
-  deleteSceneIfUnused
+  getBusinessId
 };
 

@@ -16,6 +16,7 @@ import { UploadItem } from '@arco-design/web-react/es/Upload';
 import { useHistory, useLocation } from 'react-router-dom';
 import type { Descendant } from 'slate';
 import RichTextEditor from '@/components/RichTextEditor/index';
+import { addKnowledgeJson, addKnowledgeFile, batchAddKnowledge } from '@/api';
 
 export default function KnowledgeCreation() {
     const [form] = Form.useForm();
@@ -98,28 +99,51 @@ export default function KnowledgeCreation() {
                 Message.error('请选择所属场景');
                 return;
             }
-
-            const payload: Partial<Payload> = {
-                business: values.business,
-                scene: values.scene,
-                title: values.title || '',
-                mode,
-            };
+            
 
             if (mode === '富文本') {
-                payload.content = JSON.stringify(editorContent);
-            } else {
-                payload.files = fileList.map((f) => ({
-                    name: f.name || (f.originFile && f.originFile.name) || 'unknown',
-                    size: (f.originFile && (f.originFile as File).size) || 0,
-                }));
+                await addKnowledgeJson({
+                    title: values.title,
+                    content: JSON.stringify(editorContent),
+                    business: values.business,
+                    scene: values.scene,
+                });
+            } else if (mode === 'pdf') {
+                if (fileList.length === 0) {
+                    Message.error('请至少上传一个文件');
+                    return;
+                }
+
+                if (fileList.length === 1) {
+                    const file = fileList[0].originFile;
+                    if (!file) {
+                        Message.error('文件对象丢失');
+                        return;
+                    }
+                    await addKnowledgeFile({
+                        document: file,
+                        business: values.business,
+                        scene: values.scene,
+                    });
+                } else {
+                    const files = fileList.map(f => f.originFile).filter(Boolean) as File[];
+                    if (files.length !== fileList.length) {
+                        Message.error('部分文件对象丢失');
+                        return;
+                    }
+                    await batchAddKnowledge({
+                        documents: files,
+                        business: values.business,
+                        scene: values.scene,
+                    });
+                }
             }
 
-            console.log('提交负载：', payload);
-            Message.success('知识创建（前端）提交成功');
+            Message.success('知识创建成功');
             history.push('/knowledge-management/all');
         } catch (err) {
-            Message.error('请检查表单必填项');
+            console.error(err);
+            Message.error('创建失败，请检查表单或网络');
         }
     };
 
@@ -250,8 +274,8 @@ export default function KnowledgeCreation() {
                                     </Form.Item>
 
                                     {fileList.length === 1 &&
-                                        (<Form.Item label="文件标题" field="title" rules={[{ required: true, message: '请填写文件标题' }]}>
-                                            <Input placeholder="建议和上传的文件名一致" />
+                                        (<Form.Item label="文件标题" field="title">
+                                            <Input placeholder="可填，不填就和上传的文件名一致" />
                                         </Form.Item>)
                                     }
                                 </>

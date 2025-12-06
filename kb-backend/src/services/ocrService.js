@@ -11,11 +11,52 @@ const OCR_TIMEOUT = 60000; // 60 seconds per page
 // 检查 Poppler 是否可用（用于 PDF 转图片）
 function checkPopplerAvailable() {
   try {
+    // Common Homebrew installation locations for pdftoppm on macOS
+    const candidates = [
+      '/opt/homebrew/bin/pdftoppm', // Apple Silicon
+      '/usr/local/bin/pdftoppm', // Intel
+      '/usr/local/opt/poppler/bin/pdftoppm',
+      '/usr/bin/pdftoppm',
+      '/bin/pdftoppm'
+    ];
+
+    for (const candidate of candidates) {
+      try {
+        if (fs.existsSync(candidate)) {
+          // Prepend the candidate's directory to PATH so child processes can find it
+          const dir = path.dirname(candidate);
+          const curPath = process.env.PATH || '';
+          if (!curPath.split(path.delimiter).includes(dir)) {
+            process.env.PATH = `${dir}${path.delimiter}${curPath}`;
+          }
+          return true;
+        }
+      } catch (e) {
+        // ignore and continue
+      }
+    }
+
+    // If binary not found on filesystem candidates, try running the command
+    // with an augmented PATH that includes common brew locations.
+    const env = Object.assign({}, process.env);
+    const extraPaths = ['/opt/homebrew/bin', '/usr/local/bin', '/usr/local/opt/poppler/bin'];
+    env.PATH = `${extraPaths.join(path.delimiter)}${path.delimiter}${env.PATH || ''}`;
+
     execSync('pdftoppm -v', { 
       stdio: ['ignore', 'pipe', 'pipe'], 
       timeout: 5000,
-      encoding: 'utf8'
+      encoding: 'utf8',
+      env
     });
+
+    // If it succeeded, also update process.env.PATH so later spawn() calls inherit it
+    const curPath = process.env.PATH || '';
+    for (const p of extraPaths) {
+      if (!curPath.split(path.delimiter).includes(p)) {
+        process.env.PATH = `${p}${path.delimiter}${process.env.PATH || ''}`;
+      }
+    }
+
     return true;
   } catch (error) {
     return false;
