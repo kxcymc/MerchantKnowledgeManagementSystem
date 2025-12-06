@@ -15,9 +15,10 @@ import { knowledgeList, KnowledgeDoc } from '@/constant';
 import { useHistory } from 'react-router-dom';
 import SearchForm from './form';
 import styles from './style/index.module.less';
+import { getKnowledgeList, deleteKnowledge, getFileUrl } from '@/api';
 
 export default function KnowledgeAll() {
-    const [data, setData] = useState<KnowledgeDoc[]>(knowledgeList);
+    const [data, setData] = useState<KnowledgeDoc[]>([]);
     const [loading, setLoading] = useState(true);
     const [pagination, setPagination] = useState<PaginationProps>({
         sizeCanChange: true,
@@ -34,22 +35,19 @@ export default function KnowledgeAll() {
         setLoading(true);
         try {
             const { current, pageSize } = pagination;
-            const query = new URLSearchParams({
-                page: String(current),
-                pageSize: String(pageSize),
-                ...formParams
-            }).toString();
-
-            const res = await fetch(`/api/knowledge?${query}`);
-            const json = await res.json();
-            if (json && json.data) {
-                setData(json.data);
-                if (json.total) {
-                    setPagination((prev) => ({ ...prev, total: json.total }));
-                }
+            // API returns all data, so we handle pagination on client side
+            const res = await getKnowledgeList(formParams);
+            
+            if (res && res.data) {
+                const start = (current - 1) * pageSize;
+                const end = start + pageSize;
+                const pageData = res.data.slice(start, end) as any;
+                setData(pageData);
+                setPagination((prev) => ({ ...prev, total: res.data.length }));
             }
         } catch (err) {
             console.error(err);
+            Message.error('获取列表失败');
         } finally {
             setLoading(false);
         }
@@ -68,19 +66,16 @@ export default function KnowledgeAll() {
         const del = async () => {
             try {
                 const deletePromises = selectedRowKeys.map(id => 
-                    fetch(`/api/knowledge/${id}`, { method: 'DELETE' })
+                    deleteKnowledge({ knowledge_id: Number(id) })
                 );
-                const results = await Promise.all(deletePromises);
-                const allSuccess = results.every(res => res.ok);
+                await Promise.all(deletePromises);
                 
-                if (allSuccess) {
-                    Message.success(`成功删除 ${selectedRowKeys.length} 个文件`);
-                    setData((prev) => prev.filter((i) => !selectedRowKeys.includes(i.knowledge_id)));
-                    setSelectedRowKeys([]);
-                } else {
-                    Message.error('部分文件删除失败');
-                }
+                Message.success(`成功删除 ${selectedRowKeys.length} 个文件`);
+                // Refresh list
+                fetchList();
+                setSelectedRowKeys([]);
             } catch (err) {
+                console.error(err);
                 Message.error('删除出错');
             }
         };
@@ -106,12 +101,9 @@ export default function KnowledgeAll() {
     }
 
     function previewKnowledge(id: number, type: string, url = '') {
-        if (type === 'PDF') {
-            if (url) window.open(url, '_blank');
-            else
-                Modal.info({
-                    title: '该PDF不支持预览'
-                })
+        if (type === 'pdf' || type === 'PDF') {
+            const previewUrl = getFileUrl(id);
+            window.open(previewUrl, '_blank');
         } else {
             history.push(`/knowledge-management/RichTextPreview?knowledge_id=${id.toString()}`)
         }

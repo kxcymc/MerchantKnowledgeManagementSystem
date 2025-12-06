@@ -57,20 +57,20 @@ export const routes: IRoute[] = [
       },
     ],
   },
-  {
-    name: '数据可视化',
-    key: 'visualization',
-    children: [
-      {
-        name: '分析页',
-        key: 'visualization/data-analysis',
-      },
-      {
-        name: '多维数据分析',
-        key: 'visualization/multi-dimension-data-analysis',
-      },
-    ],
-  },
+  // {
+  //   name: '数据可视化',
+  //   key: 'visualization',
+  //   children: [
+  //     {
+  //       name: '分析页',
+  //       key: 'visualization/data-analysis',
+  //     },
+  //     {
+  //       name: '多维数据分析',
+  //       key: 'visualization/multi-dimension-data-analysis',
+  //     },
+  //   ],
+  // },
   {
     name: '结果页',
     key: 'result',

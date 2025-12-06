@@ -688,7 +688,7 @@ async function deleteKnowledge(knowledgeId) {
     throw new Error(`knowledge_id ${knowledgeId} 不存在`);
   }
 
-  const sceneId = current.scene_id;
+
   
   // 1. 从向量数据库删除
   await vectorStore.removeWhere(
@@ -698,15 +698,7 @@ async function deleteKnowledge(knowledgeId) {
   // 2. 从MySQL删除
   await dbService.deleteKnowledge(knowledgeId);
 
-  // 2.1 如果该业务场景不再被任何知识引用，则删除 BusinessScene 记录
-  try {
-    if (sceneId) {
-      await dbService.deleteSceneIfUnused(sceneId);
-    }
-  } catch (error) {
-    // 不因为业务场景删除失败而中断主流程，只记录日志
-    logger.warn('删除业务场景记录失败（可忽略）', { knowledgeId, sceneId, error: error.message });
-  }
+
   
   // 3. 删除本地物理文件（所有类型）
   if (current.file_url) {

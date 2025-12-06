@@ -4,6 +4,7 @@ import { IconFile, IconCheckCircleFill, IconCloseCircleFill } from '@arco-design
 import cs from 'classnames';
 import styles from './style/index.module.less';
 import { useHistory } from 'react-router-dom';
+import { getFileUrl } from '@/api';
 
 type Props = {
   knowledge_id: number;
@@ -55,12 +56,9 @@ const KnowledgeCard: React.FC<Props> = ({
     );
   };
   function previewKnowledge(id: number, type: string, url = '') {
-    if (type === 'PDF') {
-      if (url) window.open(url, '_blank');
-      else
-        Modal.info({
-          title: '该PDF不支持预览'
-        })
+    if (type === 'pdf' || type === 'PDF') {
+      const previewUrl = getFileUrl(id);
+      window.open(previewUrl, '_blank');
     } else {
       history.push(`/knowledge-management/RichTextPreview?knowledge_id=${id.toString()}`)
     }

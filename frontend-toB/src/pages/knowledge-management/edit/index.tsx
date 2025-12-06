@@ -16,6 +16,7 @@ import { UploadItem } from '@arco-design/web-react/es/Upload';
 import { useLocation, useHistory } from 'react-router-dom';
 import type { Descendant } from 'slate';
 import RichTextEditor from '@/components/RichTextEditor/index';
+import { updateKnowledge, getFileUrl } from '@/api';
 
 export default function KnowledgeCreation() {
     const location = useLocation();
@@ -61,31 +62,37 @@ export default function KnowledgeCreation() {
     const handleSubmit = async () => {
         try {
             const values = await form.validate();
-
-            const payload: Partial<Payload> = {
-                business: values.business,
-                scene: values.scene,
-                title: values.title || '',
-                mode,
-            };
+            const id = Number(knowledgeIdParam);
 
             if (mode === '富文本') {
-                payload.content = JSON.stringify(editorContent);
+                await updateKnowledge({
+                    knowledge_id: id,
+                    title: values.title,
+                    content: JSON.stringify(editorContent),
+                    business: values.business,
+                    scene: values.scene,
+                });
             } else {
-                // 修改：将单个文件包装成数组格式提交
-                if (uploadedFile) {
-                    payload.files = [{
-                        name: uploadedFile.name || (uploadedFile.originFile && uploadedFile.originFile.name) || 'unknown',
-                        size: (uploadedFile.originFile && (uploadedFile.originFile as File).size) || 0,
-                    }];
+                // PDF mode
+                const payload: any = {
+                    knowledge_id: id,
+                    title: values.title,
+                    business: values.business,
+                    scene: values.scene,
+                };
+                
+                if (uploadedFile && uploadedFile.originFile) {
+                    payload.document = uploadedFile.originFile;
                 }
+                
+                await updateKnowledge(payload);
             }
 
-            console.log('提交负载：', payload);
-            Message.success('知识创建（前端）提交成功');
+            Message.success('知识更新成功');
             history.push('/knowledge-management/all');
         } catch (err) {
-            Message.error('请检查表单必填项');
+            console.error(err);
+            Message.error('更新失败，请检查表单或网络');
         }
     };
 
@@ -107,12 +114,9 @@ export default function KnowledgeCreation() {
     };
 
     function previewKnowledge(id: number, type: string, url = '') {
-        if (type === 'PDF') {
-            if (url) window.open(url, '_blank');
-            else
-                Modal.info({
-                    title: '该PDF不支持预览'
-                })
+        if (type === 'pdf' || type === 'PDF') {
+            const previewUrl = getFileUrl(id);
+            window.open(previewUrl, '_blank');
         } else {
             history.push(`/knowledge-management/RichTextPreview?knowledge_id=${id.toString()}`)
         }
