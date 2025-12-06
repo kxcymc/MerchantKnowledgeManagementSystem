@@ -93,7 +93,7 @@ const Index: React.FC = () => {
         } else {
             history.push(`/knowledge-creation`)
         }
-    }
+    }    
 
     return (
         <div className={styles.container} style={{ padding: 24 }}>

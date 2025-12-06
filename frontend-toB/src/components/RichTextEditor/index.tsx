@@ -150,13 +150,12 @@ const isMarkActive = (editor: Editor, format: keyof FormattedText) => {
 };
 
 const insertLink = (editor: Editor, url: string) => {
-    if (Editor.string(editor, [])) {
-        Transforms.insertNodes(editor, {
-            type: 'link',
-            url,
-            children: [{ text: url }],
-        });
-    }
+    // 移除对 Editor.string(editor, []) 的检查，允许在空文档中插入链接
+    Transforms.insertNodes(editor, {
+        type: 'link',
+        url,
+        children: [{ text: url }],
+    });
 };
 
 const insertHorizontalRule = (editor: Editor) => {
@@ -559,7 +558,15 @@ const RichTextEditor: FC<RichTextEditorProps> = ({ value, onChange }) => {
     const [pages, setPages] = useState<Descendant[][]>(() => value && value.length > 0 ? value : [initialValue]);
     const [currentPageIndex, setCurrentPageIndex] = useState(0);
 
+    // 监听 value prop 变化，同步到内部 state
+    useEffect(() => {
+        if (value && value.length > 0) {
+            setPages(value);
+        }
+    }, [value]);
+
     // 为每一页创建一个独立的 editor 实例，依赖于 currentPageIndex，保证历史记录不混淆
+    // 每次切换页面时，重新创建 editor 实例，避免旧页面的 selection/history 污染新页面导致 crash
     const editor = useMemo(() => {
         const ed = withHistory(withReact(createEditor()));
         const { isVoid } = ed;
@@ -567,7 +574,7 @@ const RichTextEditor: FC<RichTextEditorProps> = ({ value, onChange }) => {
             return element.type === 'horizontal-rule' || isVoid(element);
         };
         return ed;
-    }, []);
+    }, [currentPageIndex]); // 添加 currentPageIndex 依赖
 
     const [charCount, setCharCount] = useState(0);
     const [isReady, setIsReady] = useState(false);

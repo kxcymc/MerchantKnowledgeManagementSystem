@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Card,
     Typography,
@@ -7,7 +7,6 @@ import {
     Button,
     Select,
     Message,
-    Modal,
     Radio,
     Upload,
 } from '@arco-design/web-react';
@@ -16,9 +15,9 @@ import { UploadItem } from '@arco-design/web-react/es/Upload';
 import { useLocation, useHistory } from 'react-router-dom';
 import type { Descendant } from 'slate';
 import RichTextEditor from '@/components/RichTextEditor/index';
-import { updateKnowledge, getFileUrl } from '@/api';
+import { updateKnowledge, getFileUrl, getKnowledgeDetail } from '@/api';
 
-export default function KnowledgeCreation() {
+export default function KnowledgeEdit() {
     const location = useLocation();
     const history = useHistory();
     const [form] = Form.useForm();
@@ -26,12 +25,20 @@ export default function KnowledgeCreation() {
     const [mode, setMode] = useState<'pdf' | '富文本' | ''>('');
     const [uploadedFile, setUploadedFile] = useState<UploadItem | null>(null);
 
+    const trimPdfSuffix = (str: any) => {
+        if (typeof str !== 'string') return str;
+        if (str.slice(-4).toLowerCase() === '.pdf') {
+            return str.slice(0, -4);
+        }
+        return str;
+    }
+
     const params = new URLSearchParams(location.search)
     const knowledgeIdParam = params.get('knowledge_id');
     if (!knowledgeIdParam || Number.isNaN(Number(knowledgeIdParam))) {
         history.replace(`expection/404?errRoute=${encodeURIComponent(JSON.stringify([location.pathname, location.search].join('')))}`);
     }
-    const DocTitleParam = params.get('title') ? '《' + params.get('title') + '》' : '';
+    const DocTitleParam = params.get('title') ? '《' + trimPdfSuffix(params.get('title')) + '》' : '';
     const fileTypeParam = params.get('type') || '';
 
     // 修改：处理单个文件上传
@@ -48,16 +55,6 @@ export default function KnowledgeCreation() {
         setUploadedFile(null);
         Message.success('文件已移除');
     };
-
-    interface Payload {
-        business: string;
-        scene: string;
-        file_url?: string;
-        title?: string;
-        mode: 'pdf' | '富文本' | '';
-        content?: string;
-        files?: { name: string; size: number; link?: string }[];
-    }
 
     const handleSubmit = async () => {
         try {
@@ -80,11 +77,11 @@ export default function KnowledgeCreation() {
                     business: values.business,
                     scene: values.scene,
                 };
-                
+
                 if (uploadedFile && uploadedFile.originFile) {
                     payload.document = uploadedFile.originFile;
                 }
-                
+
                 await updateKnowledge(payload);
             }
 
@@ -129,6 +126,71 @@ export default function KnowledgeCreation() {
         }],
     ]);
     const [isShowSceneSelectCol, setIsShowSceneSelectCol] = useState(false);
+
+    // 获取详情并回显
+    useEffect(() => {
+        // 根据 URL type 初始化 mode（保证回显时可以直接显示对应编辑区）
+        const normalizedType = (fileTypeParam || '').toLowerCase();
+        if (normalizedType === '富文本'.toLowerCase() || normalizedType === 'richtext') {
+            setMode('富文本');
+        } else if (normalizedType === 'pdf') {
+            setMode('pdf');
+        } else {
+            setMode('');
+        }
+
+        if (!knowledgeIdParam) return;
+
+        getKnowledgeDetail({ knowledge_id: Number(knowledgeIdParam) })
+            .then(res => {
+                console.log(res);
+
+                if (res && res.data) {
+                    const knowledgeItem = res.data;
+
+                    // 回显表单字段
+                    form.setFieldsValue({
+                        title: trimPdfSuffix(knowledgeItem.title),
+                        business: knowledgeItem.business,
+                        scene: knowledgeItem.scene,
+                    });
+
+                    // setFieldsValue 不会触发 onValuesChange，所以在这里手动同步
+                    // 是否显示场景选择列
+                    setIsShowSceneSelectCol(knowledgeItem.business === '招商入驻');
+
+                    // 是否存在表单值（用于提交按钮可用性）
+                    setHasValue(
+                        [knowledgeItem.title, knowledgeItem.business, knowledgeItem.scene].some(val =>
+                            val !== undefined && val !== '' && val !== null
+                        )
+                    );
+
+
+                    // 回显富文本内容
+                    if (knowledgeItem && knowledgeItem.content) {
+                        let contentData: any = knowledgeItem.content;
+                        if (typeof contentData === 'string') {
+                            try {
+                                contentData = JSON.parse(contentData);
+                            } catch (e) {
+                                console.error('Parse content error', e);
+                            }
+                        }
+                        // 确保格式为 Descendant[][]
+                        if (Array.isArray(contentData) && contentData.length > 0) {
+                            if (Array.isArray(contentData[0])) {
+                                setEditorContent(contentData as Descendant[][]);
+                            } else {
+                                setEditorContent([contentData] as Descendant[][]);
+                            }
+                        }
+                    }
+                }
+            })
+            .catch(err => console.error(err));
+        // 依赖 knowledgeIdParam / fileTypeParam，参数变化时重新拉取并回显
+    }, [knowledgeIdParam, fileTypeParam, form]);
 
     return (
         <div style={{ padding: 24 }}>
@@ -194,7 +256,7 @@ export default function KnowledgeCreation() {
                                                     onChange={onUploadChange}
                                                     showUploadList={false}
                                                     autoUpload={false}
-                                                    multiple={false} // 明确禁止多选
+                                                    multiple={false}
                                                 >
                                                     <Button type="outline">
                                                         <IconUpload /> 选择 PDF 文件
