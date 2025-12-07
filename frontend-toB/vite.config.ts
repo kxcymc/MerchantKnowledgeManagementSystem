@@ -32,5 +32,12 @@ export default defineConfig({
     port: 5173,
     strictPort: false,
     open: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        // 后端 API 路径就是 /api，不需要 rewrite
+      }
+    }
   },
 });

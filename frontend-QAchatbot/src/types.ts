@@ -21,6 +21,27 @@ export interface Attachment {
   size?: number;
 }
 
+export interface MessageReference {
+  knowledge_id: number;
+  title: string;
+  type: string;
+  file_url: string;
+  page?: number; // 向后兼容：总权重最高的页码
+  pages?: Array<{ 
+    page: number; 
+    score: number; // 总权重（所有引用的得分之和）
+    totalScore?: number; // 总权重（明确字段）
+    count?: number; // 引用次数
+    maxScore?: number; // 最大权重（单个引用的最高得分）
+  }>; // 所有页码，按总权重排序
+  score?: number; // 总权重（所有引用的得分之和）
+  chunks?: Array<{ // chunk信息，用于句子匹配
+    text: string; // chunk文本
+    page: number; // 页码
+    score: number; // 得分
+  }>;
+}
+
 export interface Message {
   message_id: string;
   session_id: string;
@@ -30,6 +51,7 @@ export interface Message {
   timestamp: number;
   isStreaming?: boolean;
   files?: File[];
+  references?: MessageReference[];
 }
 
 // Chat Session Types

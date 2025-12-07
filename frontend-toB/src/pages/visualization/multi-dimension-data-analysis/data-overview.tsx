@@ -28,13 +28,32 @@ export default () => {
 
   const getData = async () => {
     setLoading(true);
-    const { data } = await axios
-      .get('/api/multi-dimension/overview')
-      .finally(() => setLoading(false));
+    try {
+      const { data } = await axios.get('/api/statistics/overview');
+      if (data.success) {
+        const overview = data.data;
+        // 格式化总览数据
+        const overviewData = [
+          overview.messages?.total_messages || 0, // 总消息数
+          overview.citations?.total_citations || 0, // 总引用数
+          overview.knowledge?.total_knowledge || 0, // 总知识库数
+          overview.sessions?.total_sessions || 0, // 总会话数
+        ];
+        
+        // 格式化趋势数据
+        const chartData = (overview.trend || []).map((item: any) => ({
+          date: item.date,
+          count: item.count,
+        }));
 
-    const { overviewData, chartData } = data;
-    setLineData(chartData);
-    setOverview(overviewData);
+        setLineData(chartData);
+        setOverview(overviewData);
+      }
+    } catch (error) {
+      console.error('获取数据总览失败:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {

@@ -99,8 +99,6 @@ export default function KnowledgeCreation() {
                 Message.error('请选择所属场景');
                 return;
             }
-            
-
             if (mode === '富文本') {
                 await addKnowledgeJson({
                     title: values.title,

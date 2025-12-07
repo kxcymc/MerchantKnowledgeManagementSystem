@@ -1,0 +1,39 @@
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.chartContainer {
+  width: 100%;
+  min-height: 400px;
+  padding: 16px 0;
+}
+
+.statCard {
+  padding: 16px;
+  background: var(--color-bg-2);
+  border-radius: 4px;
+  border: 1px solid var(--color-border-2);
+  transition: all 0.3s;
+
+  &:hover {
+    border-color: var(--color-primary-light-3);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+}
+
+.statLabel {
+  font-size: 14px;
+  color: var(--color-text-2);
+  margin-bottom: 8px;
+}
+
+.statValue {
+  font-size: 32px;
+  font-weight: bold;
+  color: var(--color-primary);
+  line-height: 1.2;
+}
+

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Avatar, Dropdown, Modal } from '@arco-design/web-react';
+import { Button, Avatar, Dropdown, Modal, Input } from '@arco-design/web-react';
 import { IconMessage, IconMore, IconEdit, IconMenuFold } from '@arco-design/web-react/icon';
 import { ChatSession } from '@/types';
 import logo from '@/assets/logo.png';
@@ -11,6 +11,7 @@ interface SidebarProps {
   onSessionSelect: (id: string) => void;
   onNewChat: () => void;
   onDeleteSession: (id: string) => void;
+  onRenameSession: (id: string, newTitle: string) => void;
   isOpen: boolean;
   isHovered: boolean;
   toggleOpen: () => void;
@@ -22,12 +23,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSessionSelect,
   onNewChat,
   onDeleteSession,
+  onRenameSession,
   isOpen,
   isHovered,
   toggleOpen,
 }) => {
+  // 调试：监听 sessions prop 变化
+  React.useEffect(() => {
+    console.log('Sidebar 接收到的 sessions:', sessions.length, sessions);
+  }, [sessions]);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
+  const [renameModalVisible, setRenameModalVisible] = useState(false);
+  const [sessionToRename, setSessionToRename] = useState<string | null>(null);
+  const [renameTitle, setRenameTitle] = useState('');
 
   const handleDeleteClick = (e: React.MouseEvent, sessionId: string) => {
     e.stopPropagation();
@@ -43,8 +52,40 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
+  const handleRenameClick = (e: React.MouseEvent, sessionId: string) => {
+    e.stopPropagation();
+    const session = sessions.find(s => s.id === sessionId);
+    setSessionToRename(sessionId);
+    setRenameTitle(session?.title || '');
+    setRenameModalVisible(true);
+  };
+
+  const handleConfirmRename = () => {
+    if (sessionToRename && renameTitle.trim()) {
+      onRenameSession(sessionToRename, renameTitle.trim());
+      setRenameModalVisible(false);
+      setSessionToRename(null);
+      setRenameTitle('');
+    }
+  };
+
+  const handleCancelRename = () => {
+    setRenameModalVisible(false);
+    setSessionToRename(null);
+    setRenameTitle('');
+  };
+
   const getDropList = (sessionId: string) => (
     <div className={styles.dropContainer}>
+      <div
+        className={styles.dropItem}
+        onClick={(e) => {
+          e.stopPropagation();
+          handleRenameClick(e, sessionId);
+        }}
+      >
+        重命名
+      </div>
       <div
         className={styles.dropItem}
         onClick={(e) => {
@@ -130,9 +171,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           <div className={styles.scrollableList}>
-            {sessions.length > 0 && <div className={styles.recentTitle}>历史对话</div>}
+            {sessions.length > 0 && <div className={styles.recentTitle}>历史对话 ({sessions.length})</div>}
+            
+            {sessions.length === 0 && (
+              <div style={{ padding: '20px', textAlign: 'center', color: '#86909c' }}>
+                暂无历史对话
+              </div>
+            )}
 
-            {sessions.map((session) => (
+            {sessions.map((session, index) => {
+              console.log(`渲染会话 ${index + 1}:`, session);
+              return (
               <div
                 key={session.id}
                 onClick={() => onSessionSelect(session.id)}
@@ -154,7 +203,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </Dropdown>
                 )}
               </div>
-            ))}
+            );
+            })}
           </div>
         </div>
       </div>
@@ -168,6 +218,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
         cancelText="取消"
       >
         <p>你确定要删除对话吗？删除后无法找回。</p>
+      </Modal>
+
+      <Modal
+        title="重命名会话"
+        visible={renameModalVisible}
+        onOk={handleConfirmRename}
+        onCancel={handleCancelRename}
+        okText="确定"
+        cancelText="取消"
+      >
+        <div style={{ marginBottom: '16px' }}>
+          <Input
+            value={renameTitle}
+            onChange={(value) => setRenameTitle(value)}
+            placeholder="请输入新标题"
+            maxLength={100}
+            showWordLimit
+            autoFocus
+            onPressEnter={handleConfirmRename}
+          />
+        </div>
       </Modal>
     </div>
   );

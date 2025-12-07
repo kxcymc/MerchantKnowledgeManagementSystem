@@ -11,8 +11,8 @@ import {
     Space
 } from '@arco-design/web-react';
 import { IconPlus } from '@arco-design/web-react/icon';
-import { knowledgeList, KnowledgeDoc } from '@/constant';
-import { useHistory } from 'react-router-dom';
+import { KnowledgeDoc } from '@/constant';
+import { useHistory, useLocation } from 'react-router-dom';
 import SearchForm from './form';
 import styles from './style/index.module.less';
 import { getKnowledgeList, deleteKnowledge, getFileUrl } from '@/api';
@@ -28,22 +28,76 @@ export default function KnowledgeAll() {
         pageSizeChangeResetCurrent: true,
     });
     const [formParams, setFormParams] = useState({});
-    const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
+    const [selectedRowKeys, setSelectedRowKeys] = useState<(string | number)[]>([]);
     const history = useHistory();
+    const location = useLocation();
 
     const fetchList = async () => {
         setLoading(true);
         try {
             const { current, pageSize } = pagination;
-            // API returns all data, so we handle pagination on client side
-            const res = await getKnowledgeList(formParams);
+            // 构建查询参数（不包含分页参数，因为后端不支持分页）
+            const query = new URLSearchParams({
+                ...formParams
+            }).toString();
+
+            const res = await fetch(`/api/mul-query?${query}`);
+            const results = await res.json();
             
-            if (res && res.data) {
-                const start = (current - 1) * pageSize;
-                const end = start + pageSize;
-                const pageData = res.data.slice(start, end) as any;
-                setData(pageData);
-                setPagination((prev) => ({ ...prev, total: res.data.length }));
+            // 后端返回的是数组格式，需要在前端进行格式化
+            if (Array.isArray(results)) {
+                // 格式化数据
+                const formattedResults = results.map(item => {
+                    // 格式化文件大小
+                    let fileSizeStr = '';
+                    if (item.file_size) {
+                        const size = parseInt(item.file_size);
+                        if (size < 1024) {
+                            fileSizeStr = `${size} B`;
+                        } else if (size < 1024 * 1024) {
+                            fileSizeStr = `${(size / 1024).toFixed(1)} KB`;
+                        } else {
+                            fileSizeStr = `${(size / (1024 * 1024)).toFixed(1)} MB`;
+                        }
+                    }
+                    
+                    // 格式化日期（包含小时和分钟）
+                    let createdAtStr = '';
+                    if (item.created_at) {
+                        const date = new Date(item.created_at);
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
+                        const hours = String(date.getHours()).padStart(2, '0');
+                        const minutes = String(date.getMinutes()).padStart(2, '0');
+                        createdAtStr = `${year}-${month}-${day} ${hours}:${minutes}`;
+                    }
+                    
+                    // 转换类型：后端存储的是 'pdf' 或 'json'，前端期望 'PDF' 或 '富文本'
+                    let typeDisplay = item.type;
+                    if (item.type === 'pdf') {
+                        typeDisplay = 'PDF';
+                    } else if (item.type === 'json') {
+                        typeDisplay = '富文本';
+                    }
+                    
+                    return {
+                        ...item,
+                        type: typeDisplay,
+                        file_size: fileSizeStr,
+                        pdf_url: item.file_url || '',
+                        status: item.status || '生效中',
+                        created_at: createdAtStr
+                    };
+                });
+                
+                // 前端分页处理
+                const total = formattedResults.length;
+                const offset = (current - 1) * pageSize;
+                const paginatedData = formattedResults.slice(offset, offset + pageSize);
+                
+                setData(paginatedData);
+                setPagination((prev) => ({ ...prev, total: total }));
             }
         } catch (err) {
             console.error(err);
@@ -57,6 +111,13 @@ export default function KnowledgeAll() {
         fetchList();
     }, [pagination.current, pagination.pageSize, JSON.stringify(formParams)]);
 
+    // 监听路由变化，当从其他页面跳转回来时刷新列表
+    useEffect(() => {
+        if (location.pathname === '/knowledge-management/all') {
+            fetchList();
+        }
+    }, [location.pathname]);
+
     const handleBatchDelete = () => {
         if (selectedRowKeys.length === 0) {
             Message.warning('请先选择要删除的文件');
@@ -66,17 +127,25 @@ export default function KnowledgeAll() {
         const del = async () => {
             try {
                 const deletePromises = selectedRowKeys.map(id => 
-                    deleteKnowledge({ knowledge_id: Number(id) })
+                    fetch(`/api/knowledge/${id}`, { method: 'DELETE' })
                 );
-                await Promise.all(deletePromises);
+                const results = await Promise.all(deletePromises);
+                const allSuccess = results.every(res => res.ok);
                 
-                Message.success(`成功删除 ${selectedRowKeys.length} 个文件`);
-                // Refresh list
-                fetchList();
-                setSelectedRowKeys([]);
+                if (allSuccess) {
+                    Message.success(`成功删除 ${selectedRowKeys.length} 个文件`);
+                    setSelectedRowKeys([]);
+                    // 刷新列表
+                    fetchList();
+                } else {
+                    Message.error('部分文件删除失败');
+                    // 即使部分失败也刷新列表
+                    fetchList();
+                }
             } catch (err) {
                 console.error(err);
                 Message.error('删除出错');
+                console.error(err);
             }
         };
 
@@ -101,9 +170,10 @@ export default function KnowledgeAll() {
     }
 
     function previewKnowledge(id: number, type: string, url = '') {
-        if (type === 'pdf' || type === 'PDF') {
-            const previewUrl = getFileUrl(id);
-            window.open(previewUrl, '_blank');
+        if (type === 'PDF') {
+            // 使用后端文件接口进行预览
+            const fileUrl = `/api/file/${id}`;
+            window.open(fileUrl, '_blank');
         } else {
             history.push(`/knowledge-management/RichTextPreview?knowledge_id=${id.toString()}`)
         }
@@ -194,7 +264,7 @@ export default function KnowledgeAll() {
                 columns={columns}
                 rowSelection={{
                     selectedRowKeys,
-                    onChange: (keys) => setSelectedRowKeys(keys as string[]),
+                    onChange: (keys) => setSelectedRowKeys(keys as (string | number)[]),
                 }}
             />
         </Card>
