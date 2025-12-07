@@ -11,13 +11,13 @@ import {
     Space
 } from '@arco-design/web-react';
 import { IconPlus } from '@arco-design/web-react/icon';
-import { knowledgeList, KnowledgeDoc } from '@/constant';
-import { useHistory } from 'react-router-dom';
+import { KnowledgeDoc } from '@/constant';
+import { useHistory, useLocation } from 'react-router-dom';
 import SearchForm from './form';
 import styles from './style/index.module.less';
 
 export default function KnowledgeAll() {
-    const [data, setData] = useState<KnowledgeDoc[]>(knowledgeList);
+    const [data, setData] = useState<KnowledgeDoc[]>([]);
     const [loading, setLoading] = useState(true);
     const [pagination, setPagination] = useState<PaginationProps>({
         sizeCanChange: true,
@@ -27,26 +27,76 @@ export default function KnowledgeAll() {
         pageSizeChangeResetCurrent: true,
     });
     const [formParams, setFormParams] = useState({});
-    const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
+    const [selectedRowKeys, setSelectedRowKeys] = useState<(string | number)[]>([]);
     const history = useHistory();
+    const location = useLocation();
 
     const fetchList = async () => {
         setLoading(true);
         try {
             const { current, pageSize } = pagination;
+            // 构建查询参数（不包含分页参数，因为后端不支持分页）
             const query = new URLSearchParams({
-                page: String(current),
-                pageSize: String(pageSize),
                 ...formParams
             }).toString();
 
-            const res = await fetch(`/api/knowledge?${query}`);
-            const json = await res.json();
-            if (json && json.data) {
-                setData(json.data);
-                if (json.total) {
-                    setPagination((prev) => ({ ...prev, total: json.total }));
-                }
+            const res = await fetch(`/api/mul-query?${query}`);
+            const results = await res.json();
+            
+            // 后端返回的是数组格式，需要在前端进行格式化
+            if (Array.isArray(results)) {
+                // 格式化数据
+                const formattedResults = results.map(item => {
+                    // 格式化文件大小
+                    let fileSizeStr = '';
+                    if (item.file_size) {
+                        const size = parseInt(item.file_size);
+                        if (size < 1024) {
+                            fileSizeStr = `${size} B`;
+                        } else if (size < 1024 * 1024) {
+                            fileSizeStr = `${(size / 1024).toFixed(1)} KB`;
+                        } else {
+                            fileSizeStr = `${(size / (1024 * 1024)).toFixed(1)} MB`;
+                        }
+                    }
+                    
+                    // 格式化日期（包含小时和分钟）
+                    let createdAtStr = '';
+                    if (item.created_at) {
+                        const date = new Date(item.created_at);
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
+                        const hours = String(date.getHours()).padStart(2, '0');
+                        const minutes = String(date.getMinutes()).padStart(2, '0');
+                        createdAtStr = `${year}-${month}-${day} ${hours}:${minutes}`;
+                    }
+                    
+                    // 转换类型：后端存储的是 'pdf' 或 'json'，前端期望 'PDF' 或 '富文本'
+                    let typeDisplay = item.type;
+                    if (item.type === 'pdf') {
+                        typeDisplay = 'PDF';
+                    } else if (item.type === 'json') {
+                        typeDisplay = '富文本';
+                    }
+                    
+                    return {
+                        ...item,
+                        type: typeDisplay,
+                        file_size: fileSizeStr,
+                        pdf_url: item.file_url || '',
+                        status: item.status || '生效中',
+                        created_at: createdAtStr
+                    };
+                });
+                
+                // 前端分页处理
+                const total = formattedResults.length;
+                const offset = (current - 1) * pageSize;
+                const paginatedData = formattedResults.slice(offset, offset + pageSize);
+                
+                setData(paginatedData);
+                setPagination((prev) => ({ ...prev, total: total }));
             }
         } catch (err) {
             console.error(err);
@@ -58,6 +108,13 @@ export default function KnowledgeAll() {
     useEffect(() => {
         fetchList();
     }, [pagination.current, pagination.pageSize, JSON.stringify(formParams)]);
+
+    // 监听路由变化，当从其他页面跳转回来时刷新列表
+    useEffect(() => {
+        if (location.pathname === '/knowledge-management/all') {
+            fetchList();
+        }
+    }, [location.pathname]);
 
     const handleBatchDelete = () => {
         if (selectedRowKeys.length === 0) {
@@ -75,13 +132,17 @@ export default function KnowledgeAll() {
                 
                 if (allSuccess) {
                     Message.success(`成功删除 ${selectedRowKeys.length} 个文件`);
-                    setData((prev) => prev.filter((i) => !selectedRowKeys.includes(i.knowledge_id)));
                     setSelectedRowKeys([]);
+                    // 刷新列表
+                    fetchList();
                 } else {
                     Message.error('部分文件删除失败');
+                    // 即使部分失败也刷新列表
+                    fetchList();
                 }
             } catch (err) {
                 Message.error('删除出错');
+                console.error(err);
             }
         };
 
@@ -107,11 +168,9 @@ export default function KnowledgeAll() {
 
     function previewKnowledge(id: number, type: string, url = '') {
         if (type === 'PDF') {
-            if (url) window.open(url, '_blank');
-            else
-                Modal.info({
-                    title: '该PDF不支持预览'
-                })
+            // 使用后端文件接口进行预览
+            const fileUrl = `/api/file/${id}`;
+            window.open(fileUrl, '_blank');
         } else {
             history.push(`/knowledge-management/RichTextPreview?knowledge_id=${id.toString()}`)
         }
@@ -202,7 +261,7 @@ export default function KnowledgeAll() {
                 columns={columns}
                 rowSelection={{
                     selectedRowKeys,
-                    onChange: (keys) => setSelectedRowKeys(keys as string[]),
+                    onChange: (keys) => setSelectedRowKeys(keys as (string | number)[]),
                 }}
             />
         </Card>

@@ -69,6 +69,10 @@ export const routes: IRoute[] = [
         name: '多维数据分析',
         key: 'visualization/multi-dimension-data-analysis',
       },
+      {
+        name: '知识洞察',
+        key: 'visualization/knowledge-insight',
+      },
     ],
   },
   {

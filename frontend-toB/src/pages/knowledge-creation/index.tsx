@@ -99,27 +99,82 @@ export default function KnowledgeCreation() {
                 return;
             }
 
-            const payload: Partial<Payload> = {
-                business: values.business,
-                scene: values.scene,
-                title: values.title || '',
-                mode,
-            };
-
             if (mode === '富文本') {
-                payload.content = JSON.stringify(editorContent);
-            } else {
-                payload.files = fileList.map((f) => ({
-                    name: f.name || (f.originFile && f.originFile.name) || 'unknown',
-                    size: (f.originFile && (f.originFile as File).size) || 0,
-                }));
-            }
+                // 富文本模式：发送 JSON 数据
+                const payload = {
+                    business: values.business,
+                    scene: values.scene || '',
+                    title: values.title || '',
+                    content: JSON.stringify(editorContent),
+                    type: 'json'
+                };
 
-            console.log('提交负载：', payload);
-            Message.success('知识创建（前端）提交成功');
-            history.push('/knowledge-management/all');
+                const response = await fetch('/api/add', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || '提交失败');
+                }
+
+                const result = await response.json();
+                Message.success('知识创建成功');
+                history.push('/knowledge-management/all');
+            } else {
+                // PDF 模式：发送文件
+                if (fileList.length === 0) {
+                    Message.error('请至少上传一个文件');
+                    return;
+                }
+
+                // 处理多个文件上传
+                const uploadPromises = fileList.map(async (fileItem) => {
+                    const file = fileItem.originFile as File;
+                    if (!file) {
+                        throw new Error('文件对象不存在');
+                    }
+
+                    const formData = new FormData();
+                    formData.append('document', file);
+                    formData.append('business', values.business);
+                    formData.append('scene', values.scene || '');
+                    // 如果只有一个文件，使用用户输入的标题；多个文件使用文件名
+                    formData.append('title', fileList.length === 1 
+                        ? (values.title || file.name) 
+                        : (file.name.replace(/\.pdf$/i, '')));
+
+                    const response = await fetch('/api/add', {
+                        method: 'POST',
+                        body: formData,
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.message || `文件 ${file.name} 上传失败`);
+                    }
+
+                    return await response.json();
+                });
+
+                try {
+                    const results = await Promise.all(uploadPromises);
+                    Message.success(`成功上传 ${results.length} 个文件`);
+                    history.push('/knowledge-management/all');
+                } catch (error) {
+                    Message.error(error instanceof Error ? error.message : '文件上传失败');
+                }
+            }
         } catch (err) {
-            Message.error('请检查表单必填项');
+            if (err instanceof Error) {
+                Message.error(err.message);
+            } else {
+                Message.error('请检查表单必填项');
+            }
         }
     };
 

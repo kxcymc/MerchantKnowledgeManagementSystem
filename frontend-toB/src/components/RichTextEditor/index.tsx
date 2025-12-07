@@ -1,4 +1,4 @@
-import React, { useCallback, FC, useState, useEffect, useMemo } from 'react';
+import React, { useCallback, FC, useState, useEffect, useMemo, useRef } from 'react';
 import { createEditor, Descendant, Editor, Element, Text, Transforms } from 'slate';
 import { Slate, Editable, withReact, RenderElementProps, RenderLeafProps } from 'slate-react';
 import { Button, Tooltip, Space, Divider, Modal, Input, InputNumber, Drawer, Message } from '@arco-design/web-react';
@@ -556,8 +556,85 @@ interface RichTextEditorProps {
 
 const RichTextEditor: FC<RichTextEditorProps> = ({ value, onChange }) => {
     // 状态管理：pages 存储所有页面的数据，Descendant[][] 结构
-    const [pages, setPages] = useState<Descendant[][]>(() => value && value.length > 0 ? value : [initialValue]);
+    const [pages, setPages] = useState<Descendant[][]>(() => {
+        if (value && Array.isArray(value) && value.length > 0) {
+            return value;
+        }
+        return [initialValue];
+    });
     const [currentPageIndex, setCurrentPageIndex] = useState(0);
+    const [contentKey, setContentKey] = useState(0); // 用于强制重新渲染 Slate 组件
+
+    // 使用 ref 存储上一次的 value，用于比较
+    const prevValueRef = useRef<string>('');
+    
+    // 使用 ref 标记是否正在用户编辑中，避免用户输入时触发外部 value 更新导致的闪动
+    const isUserEditingRef = useRef(false);
+    const lastUpdateTimeRef = useRef(0);
+    
+    // 当外部 value prop 变化时，更新内部 pages 状态（仅在非用户编辑时）
+    useEffect(() => {
+        // 如果用户正在编辑，不响应外部 value 变化，避免闪动
+        if (isUserEditingRef.current) {
+            return;
+        }
+        
+        if (value) {
+            const valueStr = JSON.stringify(value);
+            // 只有当内容真正不同时才更新
+            if (valueStr !== prevValueRef.current) {
+                prevValueRef.current = valueStr;
+                // 确保 value 是有效的二维数组格式
+                if (Array.isArray(value) && value.length > 0) {
+                    // 验证内容格式是否正确
+                    const isValid = value.every(page => Array.isArray(page) && page.length > 0);
+                    if (isValid) {
+                        const now = Date.now();
+                        // 如果距离上次更新超过 200ms，才更新（避免频繁更新导致的闪动）
+                        if (now - lastUpdateTimeRef.current > 200) {
+                            setPages(value);
+                            setCurrentPageIndex(0); // 重置到第一页
+                            setContentKey(prev => prev + 1); // 更新 key 强制重新渲染
+                            lastUpdateTimeRef.current = now;
+                        }
+                    } else {
+                        console.warn('RichTextEditor: 无效的内容格式', value);
+                    }
+                } else if (Array.isArray(value) && value.length === 0) {
+                    // 如果是空数组，使用初始值
+                    setPages([initialValue]);
+                    setCurrentPageIndex(0);
+                    setContentKey(prev => prev + 1);
+                    lastUpdateTimeRef.current = Date.now();
+                }
+            }
+        } else if (!value && prevValueRef.current) {
+            // 如果 value 变为空，重置
+            prevValueRef.current = '';
+            setPages([initialValue]);
+            setCurrentPageIndex(0);
+            setContentKey(prev => prev + 1);
+            lastUpdateTimeRef.current = Date.now();
+        }
+    }, [value]);
+    
+    // 初始化时，如果 value 有值，设置初始状态
+    useEffect(() => {
+        if (value && Array.isArray(value) && value.length > 0) {
+            const valueStr = JSON.stringify(value);
+            // 如果 prevValueRef 为空，说明是首次加载，需要设置初始值
+            if (!prevValueRef.current) {
+                prevValueRef.current = valueStr;
+                const isValid = value.every(page => Array.isArray(page) && page.length > 0);
+                if (isValid) {
+                    setPages(value);
+                    setCurrentPageIndex(0);
+                    setContentKey(prev => prev + 1);
+                    lastUpdateTimeRef.current = Date.now();
+                }
+            }
+        }
+    }, []); // 只在组件挂载时执行一次
 
     // 为每一页创建一个独立的 editor 实例，依赖于 currentPageIndex，保证历史记录不混淆
     const editor = useMemo(() => {
@@ -578,6 +655,9 @@ const RichTextEditor: FC<RichTextEditorProps> = ({ value, onChange }) => {
 
     // 处理当前页面的内容变更
     const handleChange = (newValue: Descendant[]) => {
+        // 标记用户正在编辑
+        isUserEditingRef.current = true;
+        
         const newPages = [...pages];
         newPages[currentPageIndex] = newValue;
         setPages(newPages);
@@ -587,6 +667,14 @@ const RichTextEditor: FC<RichTextEditorProps> = ({ value, onChange }) => {
         if (onChange && typeof onChange === 'function') {
             onChange(newPages);
         }
+        
+        // 延迟重置编辑标记，避免频繁更新导致的闪动
+        // 使用 requestAnimationFrame 确保在下一个渲染周期重置
+        requestAnimationFrame(() => {
+            setTimeout(() => {
+                isUserEditingRef.current = false;
+            }, 50);
+        });
     };
 
     // 切换上一页
@@ -662,9 +750,9 @@ const RichTextEditor: FC<RichTextEditorProps> = ({ value, onChange }) => {
 
     return (
         <div style={{ border: '1px solid #eee', borderRadius: 4, display: 'flex', flexDirection: 'column', height: 'inherit', width: 'inherit', overflow: 'hidden' }}>
-            {/* 使用 key 强制重新渲染 Slate 组件，以实现页面切换 */}
+            {/* 使用 key 强制重新渲染 Slate 组件，以实现页面切换和内容更新 */}
             <Slate
-                key={currentPageIndex}
+                key={`${currentPageIndex}-${contentKey}`}
                 editor={editor}
                 initialValue={pages[currentPageIndex] || initialValue}
                 onChange={handleChange}

@@ -165,22 +165,75 @@ function CardList() {
   );
 
   const getData = async () => {
-    const requestList = cardInfo.map(async (info) => {
-      const { data } = await axios
-        .get(`/api/multi-dimension/card?type=${info.type}`)
-        .catch(() => ({ data: {} }));
-      return {
-        ...data,
-        key: info.key,
-        chartType: info.type,
-      };
-    });
-
     setLoading(true);
-    const result = await Promise.all(requestList).finally(() =>
-      setLoading(false)
-    );
-    setData(result);
+    try {
+      // 获取数据总览
+      const { data: overviewData } = await axios.get('/api/statistics/overview');
+      // 获取每日活动数据
+      const { data: activityData } = await axios.get('/api/statistics/daily-activity');
+      
+      if (overviewData.success && activityData.success) {
+        const overview = overviewData.data;
+        const activity = activityData.data || [];
+        
+        // 生成趋势数据
+        const trendData = activity.map((item: any) => ({
+          x: item.date,
+          y: item.messages || 0,
+          name: '消息数',
+        }));
+
+        const result = cardInfo.map((info) => {
+          let count = 0;
+          let diff = 0;
+          let chartData: any[] = [];
+
+          switch (info.key) {
+            case 'userRetentionTrend':
+              count = overview.sessions?.total_sessions || 0;
+              diff = overview.sessions?.today_sessions || 0;
+              chartData = trendData;
+              break;
+            case 'userRetention':
+              count = overview.sessions?.total_sessions || 0;
+              diff = overview.sessions?.today_sessions || 0;
+              chartData = activity.slice(-7).map((item: any) => ({
+                x: item.date,
+                y: item.sessions || 0,
+              }));
+              break;
+            case 'contentConsumptionTrend':
+              count = overview.messages?.total_messages || 0;
+              diff = overview.messages?.today_messages || 0;
+              chartData = trendData;
+              break;
+            case 'contentConsumption':
+              count = overview.messages?.total_messages || 0;
+              diff = overview.messages?.today_messages || 0;
+              chartData = activity.slice(-7).map((item: any) => ({
+                x: item.date,
+                y: item.messages || 0,
+              }));
+              break;
+          }
+
+          return {
+            key: info.key,
+            chartType: info.type,
+            count,
+            increment: true,
+            diff,
+            chartData,
+          };
+        });
+        
+        setData(result);
+      }
+    } catch (error) {
+      console.error('获取卡片数据失败:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {

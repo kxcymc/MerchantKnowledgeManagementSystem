@@ -28,7 +28,7 @@ function PeriodLine({ data, loading }: { data: any[]; loading: boolean }) {
           name="rate"
           label={{
             formatter(text) {
-              return `${Number(text)} %`;
+              return `${Number(text)}`;
             },
           }}
         />

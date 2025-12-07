@@ -9,7 +9,6 @@ import locale from './locale';
 import DataOverview from './data-overview';
 import CardList from './card-list';
 
-import './mock';
 
 const { Row, Col } = Grid;
 const { Title } = Typography;
@@ -23,34 +22,64 @@ function DataAnalysis() {
   const [multiPieLoading, setMultiPieLoading] = useState(false);
   const [multiPie, setMultiPie] = useState([]);
 
+  // 获取每日活动数据
   const getInterval = async () => {
     setLoading(true);
-    const { data } = await axios
-      .get('/api/multi-dimension/activity')
-      .finally(() => {
-        setLoading(false);
-      });
-    setInterval(data);
+    try {
+      const { data } = await axios.get('/api/statistics/daily-activity');
+      if (data.success) {
+        // 转换为图表需要的格式
+        const formattedData = (data.data || []).map((item: any) => ({
+          type: item.date,
+          value: item.messages || 0,
+        }));
+        setInterval(formattedData);
+      }
+    } catch (error) {
+      console.error('获取每日活动数据失败:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // 获取业务分类数据（极坐标图）
   const getPolar = async () => {
     setPolarLoading(true);
-    const { data } = await axios
-      .get('/api/multi-dimension/polar')
-      .finally(() => setPolarLoading(false));
-
-    setPolar(data);
+    try {
+      const { data } = await axios.get('/api/statistics/knowledge-by-business');
+      if (data.success) {
+        const list = (data.data || []).map((item: any) => ({
+          item: item.business || '未分类',
+          count: item.count || 0,
+        }));
+        const fields = ['item', 'count'];
+        setPolar({ list, fields });
+      }
+    } catch (error) {
+      console.error('获取业务分类数据失败:', error);
+    } finally {
+      setPolarLoading(false);
+    }
   };
 
+  // 获取时段分布数据（饼图）
   const getMultiPie = async () => {
     setMultiPieLoading(true);
-    const { data } = await axios
-      .get('/api/multi-dimension/content-source')
-      .finally(() => {
-        setMultiPieLoading(false);
-      });
-
-    setMultiPie(data);
+    try {
+      const { data } = await axios.get('/api/statistics/hourly-distribution');
+      if (data.success) {
+        // 转换为饼图需要的格式
+        const formattedData = (data.data || []).map((item: any) => ({
+          type: `${item.hour}时`,
+          value: item.count || 0,
+        }));
+        setMultiPie(formattedData);
+      }
+    } catch (error) {
+      console.error('获取时段分布数据失败:', error);
+    } finally {
+      setMultiPieLoading(false);
+    }
   };
 
   useEffect(() => {
