@@ -18,7 +18,8 @@ export default defineConfig({
   css: {
     preprocessorOptions: {
       scss: {
-        additionalData: `@import "${path.resolve(__dirname, './src/styles/utils.scss').replace(/\\/g, '/')}";\n`,
+        additionalData: `@use "${path.resolve(__dirname, './src/styles/utils.scss').replace(/\\/g, '/')}" as *;\n`,
+        api: 'modern-compiler',
       },
     },
     devSourcemap: true,
@@ -27,6 +28,12 @@ export default defineConfig({
     port: 5555,
     strictPort: false,
     open: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3002',
+        changeOrigin: true,
+      },
+    },
   },
   build: {
     outDir: 'dist',

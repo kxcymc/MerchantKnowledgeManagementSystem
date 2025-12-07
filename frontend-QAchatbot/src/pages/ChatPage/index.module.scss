@@ -79,6 +79,14 @@
         }
       }
 
+      .centerControls {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: auto;
+      }
+
       .rightControls {
         pointer-events: none;
         display: flex;

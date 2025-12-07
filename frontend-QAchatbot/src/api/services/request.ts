@@ -4,8 +4,21 @@ import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
  * 创建 Axios 实例
  * 配置了基础URL、超时时间、请求/响应拦截器
  */
+// 在开发环境中使用代理（相对路径），生产环境使用环境变量或绝对路径
+const getBaseURL = () => {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  // 开发环境：使用相对路径，通过 Vite 代理转发
+  if (import.meta.env.DEV) {
+    return '/api';
+  }
+  // 生产环境：使用默认的后端地址
+  return 'http://localhost:3002/api';
+};
+
 const request: AxiosInstance = axios.create({
-  baseURL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001/api',
+  baseURL: getBaseURL(),
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -18,6 +31,13 @@ const request: AxiosInstance = axios.create({
  */
 request.interceptors.request.use(
   (config) => {
+    // 调试：记录请求URL
+    console.log('API请求:', {
+      method: config.method?.toUpperCase(),
+      url: config.url,
+      baseURL: config.baseURL,
+      fullURL: `${config.baseURL}${config.url}`
+    });
     return config;
   },
   (error) => {
@@ -31,6 +51,11 @@ request.interceptors.request.use(
  */
 request.interceptors.response.use(
   (response) => {
+    console.log('API响应拦截器:', {
+      url: response.config?.url,
+      status: response.status,
+      data: response.data
+    });
     return response.data;
   },
   (error) => {
@@ -38,6 +63,15 @@ request.interceptors.response.use(
     if (error.response?.status === 401) {
       window.location.href = '/login';
     }
+    // 记录详细错误信息
+    console.error('API请求失败:', {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      message: error.message
+    });
     return Promise.reject(error.response?.data || error.message);
   }
 );
