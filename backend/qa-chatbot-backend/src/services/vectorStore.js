@@ -27,14 +27,16 @@ class VectorStore {
           collection: config.chroma.collectionName 
         });
       } catch (error) {
-        // 集合不存在，抛出明确错误提示
-        const errorMsg = `向量数据库集合 "${config.chroma.collectionName}" 不存在。` +
-          `请先使用 kb-backend 构建知识库向量数据库，QA Chatbot 仅用于消费读取，不会创建新集合。`;
-        logger.error('Chroma 集合不存在', { 
+        // 集合不存在，记录警告但不阻止启动
+        // 这样 QA Chatbot 可以在知识库为空时启动，只是无法回答问题
+        const warningMsg = `向量数据库集合 "${config.chroma.collectionName}" 不存在。` +
+          `QA Chatbot 将无法检索知识库，直到使用 kb-backend 构建知识库。`;
+        logger.warn('Chroma 集合尚未创建', { 
           collection: config.chroma.collectionName,
-          error: error.message 
+          note: '这是正常现象，如果是首次启动或知识库为空。' 
         });
-        throw new Error(errorMsg);
+        // 标记为已初始化，但在搜索时需要检查 collection 是否存在
+        this.collection = null;
       }
 
       this.initialized = true;
@@ -54,6 +56,12 @@ class VectorStore {
 
     if (!Array.isArray(queryEmbedding)) {
       throw new Error('查询向量必须是数组');
+    }
+
+    // 如果集合不存在（初始化时未找到），直接返回空结果
+    if (!this.collection) {
+      logger.warn('尝试搜索但集合不存在', { collection: config.chroma.collectionName });
+      return [];
     }
 
     try {
