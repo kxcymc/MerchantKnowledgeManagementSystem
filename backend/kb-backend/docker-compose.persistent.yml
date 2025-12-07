@@ -1,0 +1,32 @@
+services:
+  chromadb-persistent:
+    image: chromadb/chroma:latest
+    container_name: chroma-persistent
+    ports:
+      - "8001:8000"  # 使用不同的端口，避免与 server 模式冲突
+    volumes:
+      # 持久化数据到本地目录
+      # Windows 上使用绝对路径确保卷映射正常工作
+      - F:/字节训练营/kb-backend/data/chroma_db:/data
+    environment:
+      # 启用持久化存储
+      - IS_PERSISTENT=TRUE
+      # 禁用匿名遥测
+      - ANONYMIZED_TELEMETRY=FALSE
+      # Chroma 数据目录环境变量（明确指定）
+      - CHROMA_SERVER_AUTH_CREDENTIALS=
+      - CHROMA_SERVER_AUTH_TOKEN_TRANSPORT_HEADER=
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v2/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - kb-network
+
+networks:
+  kb-network:
+    driver: bridge
+

@@ -1,5 +1,4 @@
 *.pdf
-kb-backend
 
 # Dependencies
 node_modules/
