@@ -11,6 +11,8 @@ import { GlobalContext } from './context';
 import changeTheme from './utils/changeTheme';
 import useStorage from './utils/useStorage';
 
+import GlobalLoading from '@/components/GlobalLoading';
+
 const store = createStore(rootReducer);
 
 function Index() {
@@ -37,12 +39,13 @@ function Index() {
           },
           List: {
             bordered: false,
-          },
+            },
           Table: {
             border: false,
           },
         }}
       >
+        <GlobalLoading />
         <Provider store={store}>
           <GlobalContext.Provider value={contextValue}>
             <Switch>

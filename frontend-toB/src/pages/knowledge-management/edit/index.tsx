@@ -41,9 +41,7 @@ export default function KnowledgeEdit() {
     const DocTitleParam = params.get('title') ? '《' + trimPdfSuffix(params.get('title')) + '》' : '';
     const fileTypeParam = params.get('type') || '';
 
-    // 修改：处理单个文件上传
     const onUploadChange = (fl: UploadItem[], file: UploadItem) => {
-        // 只保留最新选择的文件
         if (fl && fl.length > 0) {
             setUploadedFile(fl[fl.length - 1]);
         } else {
@@ -65,14 +63,11 @@ export default function KnowledgeEdit() {
                 return;
             }
 
-            // 检测类型转换
             const currentType = mode === '富文本' ? 'json' : 'pdf';
             const isTypeConversion = originalType && originalType !== currentType;
 
             if (isTypeConversion) {
-                // 类型转换：先删除旧记录，再创建新记录
                 try {
-                    // 1. 删除旧记录
                     const deleteResponse = await fetch(`/api/knowledge/${knowledgeIdParam}`, {
                         method: 'DELETE',
                     });
@@ -82,9 +77,7 @@ export default function KnowledgeEdit() {
                         throw new Error(errorData.message || '删除旧记录失败');
                     }
 
-                    // 2. 创建新记录
                     if (mode === '富文本') {
-                        // 创建富文本
                         const payload = {
                             business: values.business,
                             scene: values.scene || '',
@@ -108,7 +101,6 @@ export default function KnowledgeEdit() {
 
                         Message.success('类型转换成功：已删除旧记录并创建新记录');
                     } else if (mode === 'pdf') {
-                        // 创建PDF
                         if (!uploadedFile || !uploadedFile.originFile) {
                             Message.error('类型转换为PDF时，必须上传PDF文件');
                             return;
@@ -139,9 +131,7 @@ export default function KnowledgeEdit() {
                     Message.error(err instanceof Error ? err.message : '类型转换失败');
                 }
             } else {
-                // 没有类型转换，正常更新
                 if (mode === '富文本') {
-                    // 富文本模式：发送 JSON 数据
                     const payload = {
                         knowledge_id: knowledgeIdParam,
                         business: values.business,
@@ -167,10 +157,8 @@ export default function KnowledgeEdit() {
                     Message.success(result.message || '知识更新成功');
                     history.push('/knowledge-management/all');
                 } else if (mode === 'pdf') {
-                    // PDF 模式：可以只更新场景等信息，不必须上传新文件
                     const formData = new FormData();
                     
-                    // 如果上传了新文件，则包含文件
                     if (uploadedFile && uploadedFile.originFile) {
                         formData.append('document', uploadedFile.originFile as File);
                     }
@@ -201,7 +189,7 @@ export default function KnowledgeEdit() {
             }
         } catch (err) {
             console.error('更新失败:', err);
-            Message.error(err instanceof Error ? err.message : '更新失败，请检查表单必填项');
+            Message.error(err instanceof Error ? err.message : '更新失败,请检查表单必填项');
         }
     };
 
@@ -224,7 +212,6 @@ export default function KnowledgeEdit() {
 
     function previewKnowledge(id: number, type: string, url = '') {
         if (type === 'PDF' || type === 'pdf') {
-            // 使用后端文件接口进行预览
             const fileUrl = `/api/file/${id}`;
             window.open(fileUrl, '_blank');
         } else {
@@ -238,133 +225,65 @@ export default function KnowledgeEdit() {
             children: [{ text: '' }],
         }],
     ]);
-    const [originalEditorContent, setOriginalEditorContent] = useState<Descendant[][] | null>(null); // 保存原始富文本内容
+    const [originalEditorContent, setOriginalEditorContent] = useState<Descendant[][] | null>(null);
     const [isShowSceneSelectCol, setIsShowSceneSelectCol] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [originalType, setOriginalType] = useState<'pdf' | 'json' | ''>(''); // 记录原始类型
+    const [originalType, setOriginalType] = useState<'pdf' | 'json' | ''>('');
+    // 移除 editorKey，改用其他方式
+    const [editorReady, setEditorReady] = useState(false);
 
-    // 加载现有数据
     useEffect(() => {
-        const loadKnowledge = async () => {
-            if (!knowledgeIdParam) return;
-            
-            try {
-                setLoading(true);
-                const res = await fetch(`/api/query?knowledge_id=${knowledgeIdParam}`);
-                if (!res.ok) {
-                    throw new Error('加载数据失败');
-                }
-                
-                const data = await res.json();
-                
-                // 设置表单初始值
-                if (data.business) {
-                    form.setFieldValue('business', data.business);
-                    if (data.business === '招商入驻') {
-                        setIsShowSceneSelectCol(true);
-                    }
-                }
-                if (data.scene) {
-                    form.setFieldValue('scene', data.scene);
-                }
-                if (data.title) {
-                    form.setFieldValue('title', data.title);
-                }
-                
-                // 记录原始类型和内容
-                if (data.type === 'json') {
-                    setOriginalType('json');
-                    setMode('富文本');
-                    // content 可能是数组或对象，需要确保格式正确
-                    // 后端返回的 content 应该是 Descendant[][] 格式（多页）或 Descendant[] 格式（单页）
-                    if (data.content) {
-                        let formattedContent: Descendant[][];
-                        if (Array.isArray(data.content)) {
-                            // 检查是否是二维数组（多页格式）
-                            if (data.content.length > 0 && Array.isArray(data.content[0])) {
-                                // 多页格式：Descendant[][]
-                                formattedContent = data.content;
-                            } else if (data.content.length > 0) {
-                                // 单页格式：Descendant[]，包装成二维数组
-                                formattedContent = [data.content];
-                            } else {
-                                // 空数组，使用默认值
-                                formattedContent = [[{ type: 'paragraph', children: [{ text: '' }] }]];
-                            }
-                        } else {
-                            // 如果不是数组，尝试包装
-                            formattedContent = [data.content];
-                        }
-                        // 确保内容格式正确后再设置
-                        console.log('加载富文本内容:', formattedContent);
-                        setEditorContent(formattedContent);
-                        setOriginalEditorContent(formattedContent); // 保存原始内容
-                    } else {
-                        // 如果没有内容，使用默认值
-                        const defaultContent = [[{ type: 'paragraph', children: [{ text: '' }] }]];
-                        setEditorContent(defaultContent);
-                        setOriginalEditorContent(defaultContent);
-                    }
-                } else if (data.type === 'pdf') {
-                    setOriginalType('pdf');
-                    setMode('pdf');
-                }
-                
-                setHasValue(true);
-            } catch (err) {
-                console.error('加载知识数据失败:', err);
-                Message.error('加载数据失败');
-            } finally {
-                setLoading(false);
-            }
-        };
-        
-        loadKnowledge();
-    }, [knowledgeIdParam, form]);
-
-    // 获取详情并回显
-    useEffect(() => {
-        // 根据 URL type 初始化 mode（保证回显时可以直接显示对应编辑区）
-        const normalizedType = (fileTypeParam || '').toLowerCase();
-        if (normalizedType === '富文本'.toLowerCase() || normalizedType === 'richtext') {
-            setMode('富文本');
-        } else if (normalizedType === 'pdf') {
-            setMode('pdf');
-        } else {
-            setMode('');
-        }
-
         if (!knowledgeIdParam) return;
 
-        getKnowledgeDetail({ knowledge_id: Number(knowledgeIdParam) })
-            .then(res => {
-                console.log(res);
-
+        const loadKnowledge = async () => {
+            try {
+                setLoading(true);
+                // 重置编辑器准备状态
+                setEditorReady(false);
+                
+                const res = await getKnowledgeDetail({ knowledge_id: Number(knowledgeIdParam) }, { skipGlobalLoading: true });
+                
                 if (res && res.data) {
                     const knowledgeItem = res.data;
 
-                    // 回显表单字段
                     form.setFieldsValue({
                         title: trimPdfSuffix(knowledgeItem.title),
                         business: knowledgeItem.business,
                         scene: knowledgeItem.scene,
                     });
 
-                    // setFieldsValue 不会触发 onValuesChange，所以在这里手动同步
-                    // 是否显示场景选择列
                     setIsShowSceneSelectCol(knowledgeItem.business === '招商入驻');
-
-                    // 是否存在表单值（用于提交按钮可用性）
                     setHasValue(
                         [knowledgeItem.title, knowledgeItem.business, knowledgeItem.scene].some(val =>
                             val !== undefined && val !== '' && val !== null
                         )
                     );
 
+                    const normalizedUrlType = (fileTypeParam || '').toLowerCase();
+                    let targetMode: 'pdf' | '富文本' | '' = '';
+                    let targetOriginalType: 'pdf' | 'json' | '' = '';
 
-                    // 回显富文本内容
-                    if (knowledgeItem && knowledgeItem.content) {
+                    if (knowledgeItem.type === 'json') {
+                        targetOriginalType = 'json';
+                        if (normalizedUrlType === 'pdf') {
+                            targetMode = 'pdf';
+                        } else {
+                            targetMode = '富文本';
+                        }
+                    } else if (knowledgeItem.type === 'pdf') {
+                        targetOriginalType = 'pdf';
+                        if (normalizedUrlType === 'richtext' || normalizedUrlType === '富文本') {
+                            targetMode = '富文本';
+                        } else {
+                            targetMode = 'pdf';
+                        }
+                    }
+
+                    let formattedContent: Descendant[][];
+                    
+                    if (knowledgeItem.type === 'json' && knowledgeItem.content) {
                         let contentData: any = knowledgeItem.content;
+                        
                         if (typeof contentData === 'string') {
                             try {
                                 contentData = JSON.parse(contentData);
@@ -372,19 +291,52 @@ export default function KnowledgeEdit() {
                                 console.error('Parse content error', e);
                             }
                         }
-                        // 确保格式为 Descendant[][]
-                        if (Array.isArray(contentData) && contentData.length > 0) {
-                            if (Array.isArray(contentData[0])) {
-                                setEditorContent(contentData as Descendant[][]);
+
+                        if (Array.isArray(contentData)) {
+                            if (contentData.length > 0 && Array.isArray(contentData[0])) {
+                                formattedContent = contentData as Descendant[][];
+                            } else if (contentData.length > 0) {
+                                formattedContent = [contentData] as Descendant[][];
                             } else {
-                                setEditorContent([contentData] as Descendant[][]);
+                                formattedContent = [[{ type: 'paragraph', children: [{ text: '' }] }]];
                             }
+                        } else {
+                            formattedContent = [contentData] as Descendant[][];
                         }
+
+                        console.log('加载富文本内容:', formattedContent);
+                    } else {
+                        formattedContent = [[{ type: 'paragraph', children: [{ text: '' }] }]];
                     }
+
+                    // 关键修复：先同步设置所有状态
+                    setOriginalType(targetOriginalType);
+                    setMode(targetMode);
+                    
+                    // 延迟设置内容，确保 mode 已经渲染
+                    setTimeout(() => {
+                        console.log('设置 editorContent:', formattedContent);
+                        setEditorContent(formattedContent);
+                        setOriginalEditorContent(formattedContent);
+                        
+                        // 再延迟一点显示编辑器
+                        setTimeout(() => {
+                            console.log('准备渲染编辑器，editorContent 应该已设置');
+                            setEditorReady(true);
+                            setLoading(false);
+                        }, 50);
+                    }, 50);
+                } else {
+                    setLoading(false);
                 }
-            })
-            .catch(err => console.error(err));
-        // 依赖 knowledgeIdParam / fileTypeParam，参数变化时重新拉取并回显
+            } catch (err) {
+                console.error('加载知识详情失败:', err);
+                Message.error('加载数据失败');
+                setLoading(false);
+            }
+        };
+
+        loadKnowledge();
     }, [knowledgeIdParam, fileTypeParam, form]);
 
     return (
@@ -414,9 +366,14 @@ export default function KnowledgeEdit() {
                     >
                         <Radio.Group value={mode} onChange={(val) => {
                             setMode(val);
-                            // 如果切换到富文本模式，且原来是富文本类型，恢复显示原有内容
                             if (val === '富文本' && originalType === 'json' && originalEditorContent) {
-                                setEditorContent(originalEditorContent);
+                                setEditorReady(false);
+                                setTimeout(() => {
+                                    setEditorContent(originalEditorContent);
+                                    setTimeout(() => {
+                                        setEditorReady(true);
+                                    }, 50);
+                                }, 50);
                             }
                         }}>
                             <Radio value="pdf">PDF 上传</Radio>
@@ -510,14 +467,13 @@ export default function KnowledgeEdit() {
                                             <Input placeholder="输入标题" />
                                         </Form.Item>
 
-                                        <Form.Item label="富文本内容" field='text-content'>
-                                            {loading ? (
+                                        <Form.Item label="富文本内容" >
+                                            {loading || !editorReady ? (
                                                 <div style={{ padding: '40px', textAlign: 'center' }}>
                                                     加载中...
                                                 </div>
                                             ) : (
                                                 <RichTextEditor
-                                                    key={`editor-${knowledgeIdParam}-${originalType}-${mode}`}
                                                     value={editorContent}
                                                     onChange={setEditorContent}
                                                 />

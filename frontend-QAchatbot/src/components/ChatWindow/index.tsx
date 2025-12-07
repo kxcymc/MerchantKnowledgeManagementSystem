@@ -617,6 +617,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 >
                   {msg.role === MessageRole.Assistant
                     ? (() => {
+                        if (!msg.content) {
+                            return <span style={{ color: '#86909c' }}>正在思考回答......</span>;
+                        }
                         const refs = msg.references || [];
                         console.log('渲染消息内容，引用数量:', refs.length, '引用详情:', refs);
                         return renderContentWithCitations(msg.content, refs, handleReferenceClick);

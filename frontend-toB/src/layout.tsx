@@ -6,7 +6,7 @@ import {
   IconFile,
   IconPenFill,
   // IconApps,
-  IconCheckCircle,
+  // IconCheckCircle,
   IconMenuFold,
   IconMenuUnfold,
 } from '@arco-design/web-react/icon';
@@ -32,8 +32,8 @@ function getIconFromKey(key) {
   switch (key) {
     // case 'visualization':
     //   return <IconApps className={styles.icon} />;
-    case 'result':
-      return <IconCheckCircle className={styles.icon} />;
+    // case 'result':
+    //   return <IconCheckCircle className={styles.icon} />;
     case 'knowledge-creation':
       return <IconPenFill className={styles.icon} />;
     case 'knowledge-management':

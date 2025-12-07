@@ -25,8 +25,8 @@ export const getKnowledgeList = (params?: MulQueryParams) => {
  * 1.2 查询单条知识详情
  * GET /api/query
  */
-export const getKnowledgeDetail = (params: QueryOneParams) => {
-  return request.get<KnowledgeItem>('/query', { params });
+export const getKnowledgeDetail = (params: QueryOneParams, config?: any) => {
+  return request.get<KnowledgeItem>('/query', { params, ...config });
 };
 
 /**

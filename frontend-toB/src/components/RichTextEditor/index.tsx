@@ -77,7 +77,7 @@ const initialValue: Descendant[] = [
     },
 ];
 
-// 页面设置默认值 - 移除宽高设置
+// 页面设置默认值
 const DEFAULT_PAGE_SETTINGS = {
     marginTop: 20,
     marginBottom: 20,
@@ -150,7 +150,6 @@ const isMarkActive = (editor: Editor, format: keyof FormattedText) => {
 };
 
 const insertLink = (editor: Editor, url: string) => {
-    // 移除对 Editor.string(editor, []) 的检查，允许在空文档中插入链接
     Transforms.insertNodes(editor, {
         type: 'link',
         url,
@@ -375,7 +374,6 @@ const FormattingButton: FC = () => {
     );
 };
 
-// 修改页面设置组件，移除宽高设置
 const PageSettingsButton: FC<{ settings: typeof DEFAULT_PAGE_SETTINGS; onChange: (settings: typeof DEFAULT_PAGE_SETTINGS) => void }> = ({ settings, onChange }) => {
     const [drawerVisible, setDrawerVisible] = useState(false);
     const [localSettings, setLocalSettings] = useState(settings);
@@ -554,96 +552,33 @@ interface RichTextEditorProps {
 }
 
 const RichTextEditor: FC<RichTextEditorProps> = ({ value, onChange }) => {
-    // 状态管理：pages 存储所有页面的数据，Descendant[][] 结构
+    console.log('RichTextEditor 渲染，收到 value:', value);
+    
+    // 简化的状态管理：直接使用 value prop 初始化
     const [pages, setPages] = useState<Descendant[][]>(() => {
+        console.log('RichTextEditor 初始化 pages');
         if (value && Array.isArray(value) && value.length > 0) {
-            return value;
+            const isValid = value.every(page => Array.isArray(page) && page.length > 0);
+            if (isValid) {
+                console.log('RichTextEditor 初始化使用传入的 value:', value);
+                return value;
+            }
         }
+        console.log('RichTextEditor 初始化使用默认值');
         return [initialValue];
     });
+    
     const [currentPageIndex, setCurrentPageIndex] = useState(0);
-    const [contentKey, setContentKey] = useState(0); // 用于强制重新渲染 Slate 组件
-
-    // 使用 ref 存储上一次的 value，用于比较
-    const prevValueRef = useRef<string>('');
+    const [charCount, setCharCount] = useState(0);
+    const [isReady, setIsReady] = useState(false);
+    const [pageSettings, setPageSettings] = useState(DEFAULT_PAGE_SETTINGS);
+    const [slateKey, setSlateKey] = useState(0);
     
-    // 使用 ref 标记是否正在用户编辑中，避免用户输入时触发外部 value 更新导致的闪动
-    const isUserEditingRef = useRef(false);
-    const lastUpdateTimeRef = useRef(0);
-    
-    // 当外部 value prop 变化时，更新内部 pages 状态（仅在非用户编辑时）
-    useEffect(() => {
-        // 如果用户正在编辑，不响应外部 value 变化，避免闪动
-        if (isUserEditingRef.current) {
-            return;
-        }
-        
-        if (value) {
-            const valueStr = JSON.stringify(value);
-            // 只有当内容真正不同时才更新
-            if (valueStr !== prevValueRef.current) {
-                prevValueRef.current = valueStr;
-                // 确保 value 是有效的二维数组格式
-                if (Array.isArray(value) && value.length > 0) {
-                    // 验证内容格式是否正确
-                    const isValid = value.every(page => Array.isArray(page) && page.length > 0);
-                    if (isValid) {
-                        const now = Date.now();
-                        // 如果距离上次更新超过 200ms，才更新（避免频繁更新导致的闪动）
-                        if (now - lastUpdateTimeRef.current > 200) {
-                            setPages(value);
-                            setCurrentPageIndex(0); // 重置到第一页
-                            setContentKey(prev => prev + 1); // 更新 key 强制重新渲染
-                            lastUpdateTimeRef.current = now;
-                        }
-                    } else {
-                        console.warn('RichTextEditor: 无效的内容格式', value);
-                    }
-                } else if (Array.isArray(value) && value.length === 0) {
-                    // 如果是空数组，使用初始值
-                    setPages([initialValue]);
-                    setCurrentPageIndex(0);
-                    setContentKey(prev => prev + 1);
-                    lastUpdateTimeRef.current = Date.now();
-                }
-            }
-        } else if (!value && prevValueRef.current) {
-            // 如果 value 变为空，重置
-            prevValueRef.current = '';
-            setPages([initialValue]);
-            setCurrentPageIndex(0);
-            setContentKey(prev => prev + 1);
-            lastUpdateTimeRef.current = Date.now();
-        }
-    }, [value]);
-    
-    // 初始化时，如果 value 有值，设置初始状态
-    useEffect(() => {
-        if (value && Array.isArray(value) && value.length > 0) {
-            const valueStr = JSON.stringify(value);
-            // 如果 prevValueRef 为空，说明是首次加载，需要设置初始值
-            if (!prevValueRef.current) {
-                prevValueRef.current = valueStr;
-                const isValid = value.every(page => Array.isArray(page) && page.length > 0);
-                if (isValid) {
-                    setPages(value);
-                    setCurrentPageIndex(0);
-                    setContentKey(prev => prev + 1);
-                    lastUpdateTimeRef.current = Date.now();
-                }
-            }
-        }
-    }, []); // 只在组件挂载时执行一次
+    // 用于防抖的 ref
+    const changeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const mountCountRef = useRef(0);
 
-    // 监听 value prop 变化，同步到内部 state
-    useEffect(() => {
-        if (value && value.length > 0) {
-            setPages(value);
-        }
-    }, [value]);
-
-    // 为每一页创建一个独立的 editor 实例，依赖于 currentPageIndex，保证历史记录不混淆
-    // 每次切换页面时，重新创建 editor 实例，避免旧页面的 selection/history 污染新页面导致 crash
+    // 为每一页创建独立的 editor 实例
     const editor = useMemo(() => {
         const ed = withHistory(withReact(createEditor()));
         const { isVoid } = ed;
@@ -651,43 +586,59 @@ const RichTextEditor: FC<RichTextEditorProps> = ({ value, onChange }) => {
             return element.type === 'horizontal-rule' || isVoid(element);
         };
         return ed;
-    }, [currentPageIndex]); // 添加 currentPageIndex 依赖
-
-    const [charCount, setCharCount] = useState(0);
-    const [isReady, setIsReady] = useState(false);
-    const [pageSettings, setPageSettings] = useState(DEFAULT_PAGE_SETTINGS);
+    }, [currentPageIndex]);
 
     const renderElement = useCallback((props: RenderElementProps) => <ElementComponent {...props} />, []);
     const renderLeaf = useCallback((props: RenderLeafProps) => <LeafComponent {...props} />, []);
 
+    // 监听 value 变化并更新 pages
+    useEffect(() => {
+        mountCountRef.current++;
+        const mountNumber = mountCountRef.current;
+        console.log(`RichTextEditor useEffect #${mountNumber}, value:`, value, 'current pages:', pages);
+        
+        if (value && Array.isArray(value) && value.length > 0) {
+            const isValid = value.every(page => Array.isArray(page) && page.length > 0);
+            if (isValid) {
+                const valueStr = JSON.stringify(value);
+                const pagesStr = JSON.stringify(pages);
+                
+                if (valueStr !== pagesStr) {
+                    console.log(`RichTextEditor useEffect #${mountNumber}: value 与 pages 不同，更新 pages`);
+                    setPages(value);
+                    setCurrentPageIndex(0);
+                    setSlateKey(prev => prev + 1);
+                } else {
+                    console.log(`RichTextEditor useEffect #${mountNumber}: value 与 pages 相同，不更新`);
+                }
+            }
+        }
+    }, [value]);
+
     // 处理当前页面的内容变更
     const handleChange = (newValue: Descendant[]) => {
-        // 标记用户正在编辑
-        isUserEditingRef.current = true;
-        
         const newPages = [...pages];
         newPages[currentPageIndex] = newValue;
         setPages(newPages);
         setCharCount(calculateTextLength(newValue));
 
-        // 简单触发外部 onChange，回传所有页数据
-        if (onChange && typeof onChange === 'function') {
-            onChange(newPages);
+        // 使用防抖避免频繁触发 onChange
+        if (changeTimeoutRef.current) {
+            clearTimeout(changeTimeoutRef.current);
         }
         
-        // 延迟重置编辑标记，避免频繁更新导致的闪动
-        // 使用 requestAnimationFrame 确保在下一个渲染周期重置
-        requestAnimationFrame(() => {
-            setTimeout(() => {
-                isUserEditingRef.current = false;
-            }, 50);
-        });
+        changeTimeoutRef.current = setTimeout(() => {
+            if (onChange && typeof onChange === 'function') {
+                onChange(newPages);
+            }
+        }, 100); // 100ms 防抖
     };
 
     // 切换上一页
     const handlePrevPage = () => {
         if (currentPageIndex > 0) {
             setCurrentPageIndex(prev => prev - 1);
+            setSlateKey(prev => prev + 1); // 强制重新挂载
         }
     };
 
@@ -695,13 +646,15 @@ const RichTextEditor: FC<RichTextEditorProps> = ({ value, onChange }) => {
     const handleNextPage = () => {
         if (currentPageIndex < pages.length - 1) {
             setCurrentPageIndex(prev => prev + 1);
+            setSlateKey(prev => prev + 1); // 强制重新挂载
         }
     };
 
     // 新增页面
     const handleAddPage = () => {
         setPages(prev => [...prev, initialValue]);
-        setCurrentPageIndex(pages.length); // 切换到新页面
+        setCurrentPageIndex(pages.length);
+        setSlateKey(prev => prev + 1); // 强制重新挂载
         Message.success('已新增页面');
     };
 
@@ -717,20 +670,21 @@ const RichTextEditor: FC<RichTextEditorProps> = ({ value, onChange }) => {
             onOk: () => {
                 const newPages = pages.filter((_, index) => index !== currentPageIndex);
                 setPages(newPages);
-                // 如果删除的是最后一页，向前移动；否则停留在当前索引（即原来的下一页）
                 if (currentPageIndex >= newPages.length) {
                     setCurrentPageIndex(newPages.length - 1);
-                } else {
-                    // 强制刷新 editor 状态
-                    // 由于 key={currentPageIndex} 可能没变，但内容变了，这里 index 没变但内容变了
-                    // 依赖 Slate 的 initialValue 变化通常需要 key 变化或者重置
-                    // 在这种情况下，我们可能需要临时重置一下 index 或者 key 策略
                 }
+                setSlateKey(prev => prev + 1); // 强制重新挂载
                 Message.success('页面已删除');
+                
+                // 通知父组件
+                if (onChange) {
+                    onChange(newPages);
+                }
             }
         });
     };
 
+    // 初始化就绪状态
     useEffect(() => {
         const timer = setTimeout(() => setIsReady(true), 100);
         return () => clearTimeout(timer);
@@ -742,11 +696,19 @@ const RichTextEditor: FC<RichTextEditorProps> = ({ value, onChange }) => {
         setCharCount(calculateTextLength(currentContent));
     }, [pages, currentPageIndex]);
 
+    // 清理防抖定时器
+    useEffect(() => {
+        return () => {
+            if (changeTimeoutRef.current) {
+                clearTimeout(changeTimeoutRef.current);
+            }
+        };
+    }, []);
+
     if (!isReady) {
         return <div style={{ border: '1px solid #eee', borderRadius: 4, padding: 12 }}>初始化编辑器...</div>;
     }
 
-    // 修改编辑器样式，改为继承父级宽高
     const editorStyle: React.CSSProperties = {
         width: '100%',
         height: '586px',
@@ -757,9 +719,9 @@ const RichTextEditor: FC<RichTextEditorProps> = ({ value, onChange }) => {
 
     return (
         <div style={{ border: '1px solid #eee', borderRadius: 4, display: 'flex', flexDirection: 'column', height: 'inherit', width: 'inherit', overflow: 'hidden' }}>
-            {/* 使用 key 强制重新渲染 Slate 组件，以实现页面切换和内容更新 */}
+            {/* 使用组合 key 强制重新渲染：包含页面索引和 slateKey */}
             <Slate
-                key={`${currentPageIndex}-${contentKey}`}
+                key={`${currentPageIndex}-${slateKey}`}
                 editor={editor}
                 initialValue={pages[currentPageIndex] || initialValue}
                 onChange={handleChange}
