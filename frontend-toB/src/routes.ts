@@ -71,22 +71,22 @@ export const routes: IRoute[] = [
   //     },
   //   ],
   // },
-  {
-    name: '结果页',
-    key: 'result',
-    children: [
-      {
-        name: '成功页',
-        key: 'result/success',
-        breadcrumb: false,
-      },
-      {
-        name: '失败页',
-        key: 'result/error',
-        breadcrumb: false,
-      },
-    ],
-  },
+  // {
+  //   name: '结果页',
+  //   key: 'result',
+  //   children: [
+  //     {
+  //       name: '成功页',
+  //       key: 'result/success',
+  //       breadcrumb: false,
+  //     },
+  //     {
+  //       name: '失败页',
+  //       key: 'result/error',
+  //       breadcrumb: false,
+  //     },
+  //   ],
+  // },
   {
     name: '404',
     key: 'exception/404',
