@@ -1,9 +1,6 @@
-*.pdf
-
 # Dependencies
 node_modules/
 package-lock.json
-yarn.lock
 
 # Environment variables
 .env
@@ -28,3 +25,4 @@ Thumbs.db
 # Build
 dist/
 build/
+

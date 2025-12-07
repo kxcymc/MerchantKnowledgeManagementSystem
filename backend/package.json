@@ -1,0 +1,29 @@
+{
+  "name": "backend-services",
+  "version": "1.0.0",
+  "description": "Backend services for Knowledge Management System",
+  "scripts": {
+    "init-db": "node scripts/init-database.js",
+    "init-db:kb": "node scripts/init-database.js --kb-only",
+    "init-db:qa": "node scripts/init-database.js --qa-only",
+    "kb:dev": "cd kb-backend && npm run dev",
+    "kb:start": "cd kb-backend && npm start",
+    "qa:dev": "cd qa-chatbot-backend && npm run dev",
+    "qa:start": "cd qa-chatbot-backend && npm start",
+    "dev": "concurrently \"npm run kb:dev\" \"npm run qa:dev\" --names \"kb-backend,qa-backend\" --prefix-colors \"blue,green\"",
+    "start": "concurrently \"npm run kb:start\" \"npm run qa:start\" --names \"kb-backend,qa-backend\" --prefix-colors \"blue,green\"",
+    "install:all": "npm install && cd kb-backend && npm install && cd ../qa-chatbot-backend && npm install"
+  },
+  "keywords": ["backend", "rag", "knowledge-base"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.13.2",
+    "dotenv": "^16.4.5",
+    "mysql2": "^3.15.3"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
+
