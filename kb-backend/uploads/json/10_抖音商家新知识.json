@@ -1,0 +1,26 @@
+[
+  [
+    {
+      "type": "paragraph",
+      "children": [
+        {
+          "text": "你好！！"
+        }
+      ]
+    }
+  ],
+  [
+    {
+      "type": "paragraph",
+      "children": [
+        {
+          "text": "哈哈哈！！！"
+        }
+      ],
+      "lineHeight": 2,
+      "marginBottom": 2,
+      "textIndent": 2,
+      "letterSpacing": 8
+    }
+  ]
+]
