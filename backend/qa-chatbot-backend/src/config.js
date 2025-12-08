@@ -31,11 +31,24 @@ module.exports = {
   deepSeekKey: process.env.DEEPSEEK_API_KEY || '',
   deepSeekBaseURL: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com/v1',
   
+  // 阿里云多模态API配置（图像理解）
+  // 使用 MultiModalConversation API
+  aliImageApiKey: process.env.ALI_IMAGE_API_KEY || process.env.DASHSCOPE_API_KEY || '',
+  aliImageApiUrl: process.env.ALI_IMAGE_API_URL || 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
+  
+  // 阿里云多模态API配置（语音识别）
+  // 使用 OpenAI 兼容模式 API
+  aliSpeechApiKey: process.env.ALI_SPEECH_API_KEY || process.env.DASHSCOPE_API_KEY || '',
+  // 使用兼容模式的API端点（实际会在代码中转换为 /compatible-mode/v1/chat/completions）
+  aliSpeechApiUrl: process.env.ALI_SPEECH_API_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+  
   // LLM 配置
   llm: {
     // 默认模型：火山方舟引擎
+    // 注意：多模态功能需要支持多模态的模型（如 qwen-vl-max, qwen3-vl-flash 等）
     provider: process.env.LLM_PROVIDER || 'volcano_ark', // 'volcano_ark' | 'deepseek' | 'qwen'
     model: process.env.LLM_MODEL || 'doubao-seed-1-6-flash-250828', // 火山方舟模型名称（doubao-seed系列），或 deepseek-chat，或 qwen-turbo
+    // 多模态模型推荐：'qwen-vl-max' 或 'qwen3-vl-flash'（需要切换到 qwen provider）
     baseURL: process.env.LLM_BASE_URL || '', // 如果为空，会根据 provider 自动选择
     temperature: Number(process.env.LLM_TEMPERATURE || 0.7)
   },

@@ -11,6 +11,7 @@ import styles from './index.module.scss';
 import ToLoginIcon from '@/assets/goToLogin.svg'
 import LogoutIcon from '@/assets/logout.svg'
 import { chatWithRAG, ChatMessage, getSessions, getSessionHistory, deleteSession, renameSession } from '@/api';
+import { ParsedFileInfo } from '@/components/ChatInput';
 
 interface ChatPageProps {
   isLoggedIn: boolean;
@@ -183,23 +184,158 @@ export const ChatPage: React.FC<ChatPageProps> = ({ isLoggedIn, onLogout }) => {
       });
       
       // 将后端返回的消息转换为前端格式
-      const formattedMessages: Message[] = response.messages.map(msg => ({
-        message_id: String(msg.message_id),
-        session_id: String(response.session.session_id),
-        role: msg.role === 'user' ? MessageRole.User : MessageRole.Assistant,
-        content: msg.content,
-        timestamp: new Date(msg.created_at).getTime(),
-        isStreaming: false,
-        references: msg.references?.map(ref => ({
-          knowledge_id: ref.knowledge_id,
-          title: ref.title,
-          type: ref.type,
-          file_url: ref.file_url || '',
-          page: ref.page,
-          pages: (ref as any).pages,
-          score: ref.score,
-        })) || [],
-      }));
+      const formattedMessages: Message[] = response.messages.map(msg => {
+        // 调试日志：检查后端返回的消息
+        console.log('后端返回的消息:', {
+          message_id: msg.message_id,
+          role: msg.role,
+          hasAudio: !!(msg as any).audio,
+          audio: (msg as any).audio,
+          contentLength: msg.content?.length || 0
+        });
+        
+        // 在前端也过滤解析内容，确保不显示
+        let cleanedContent = msg.content || '';
+        // 移除图片、音频、附件解析后的内容
+        cleanedContent = cleanedContent.replace(/\[图片内容[：:][\s\S]*?\]/g, '');
+        cleanedContent = cleanedContent.replace(/\[语音内容[：:][\s\S]*?\]/g, '');
+        cleanedContent = cleanedContent.replace(/\[附件文件内容[：:][\s\S]*?\]/g, '');
+        // 移除"总结文件:文件名 内容:"这样的格式
+        cleanedContent = cleanedContent.replace(/总结文件[：:][^\n]*\s*内容[：:][\s\S]*?(?=\n\n|\n[A-Z]|$)/g, '');
+        cleanedContent = cleanedContent.replace(/文件[：:][^\n]*\n内容[：:][\s\S]*?(?=\n\n|\n文件[：:]|$)/g, '');
+        // 移除"文件：文件名\n内容：..."格式（更通用的匹配）
+        cleanedContent = cleanedContent.replace(/文件[：:][^\n]+\n内容[：:][\s\S]*?(?=\n\n|$)/g, '');
+        // 清理多余的空白行
+        cleanedContent = cleanedContent.replace(/\n\s*\n\s*\n/g, '\n\n');
+        cleanedContent = cleanedContent.trim();
+        
+        const message: Message = {
+          message_id: String(msg.message_id),
+          session_id: String(response.session.session_id),
+          role: msg.role === 'user' ? MessageRole.User : MessageRole.Assistant,
+          content: cleanedContent, // 使用过滤后的内容，确保不显示解析内容
+          timestamp: new Date(msg.created_at).getTime(),
+          isStreaming: false,
+          references: msg.references?.map(ref => ({
+            knowledge_id: ref.knowledge_id,
+            title: ref.title,
+            type: ref.type,
+            file_url: ref.file_url || '',
+            page: ref.page,
+            pages: (ref as any).pages,
+            score: ref.score,
+          })) || [],
+        };
+        
+        // 添加图片信息（如果后端返回了）- 支持URL对象或data URL字符串
+        if ((msg as any).image) {
+          const img = (msg as any).image;
+          // 构建完整的图片URL（如果是相对路径，需要加上API基础路径）
+          const getFullUrl = (url: string | undefined) => {
+            if (!url) return undefined;
+            // 如果是data URL，直接返回
+            if (url.startsWith('data:')) return url;
+            // 如果是绝对URL，直接返回
+            if (url.startsWith('http://') || url.startsWith('https://')) return url;
+            // 如果是相对路径，加上API基础路径
+            const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:3002' : 'http://localhost:3002');
+            // 确保URL以/开头，然后拼接API_BASE_URL
+            const cleanUrl = url.startsWith('/') ? url : `/${url}`;
+            return `${API_BASE_URL}${cleanUrl}`;
+          };
+          
+          const imageUrl = img.url ? getFullUrl(img.url) : undefined;
+          const imageDataUrl = img.dataUrl || img.data;
+          
+          message.image = {
+            name: img.name || img.originalName || 'image',
+            type: img.type || img.mimeType || 'image/jpeg',
+            size: img.size || 0,
+            dataUrl: imageDataUrl, // data URL（如果有）
+            url: imageUrl, // 完整的URL用于显示
+            filename: img.filename
+          };
+        }
+        
+        // 添加音频信息（如果后端返回了）- 支持URL对象或data URL字符串
+        if ((msg as any).audio) {
+          const aud = (msg as any).audio;
+          // 构建完整的音频URL（如果是相对路径，需要加上API基础路径）
+          const getFullUrl = (url: string | undefined) => {
+            if (!url) return undefined;
+            // 如果是data URL，直接返回
+            if (url.startsWith('data:')) return url;
+            // 如果是绝对URL，直接返回
+            if (url.startsWith('http://') || url.startsWith('https://')) return url;
+            // 如果是相对路径，加上API基础路径
+            const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:3002' : 'http://localhost:3002');
+            // 确保URL以/开头，然后拼接API_BASE_URL
+            const cleanUrl = url.startsWith('/') ? url : `/${url}`;
+            return `${API_BASE_URL}${cleanUrl}`;
+          };
+          
+          const audioUrl = aud.url ? getFullUrl(aud.url) : undefined;
+          const audioDataUrl = aud.dataUrl || aud.data;
+          
+          // 如果只有filename但没有url，尝试构建URL
+          let finalAudioUrl = audioUrl;
+          if (!finalAudioUrl && aud.filename) {
+            // 从filename构建URL（例如：/api/chat-files/filename）
+            const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:3002' : 'http://localhost:3002');
+            finalAudioUrl = `${API_BASE_URL}/api/chat-files/${aud.filename}`;
+          }
+          
+          message.audio = {
+            name: aud.name || aud.originalName || 'audio',
+            type: aud.type || aud.mimeType || 'audio/wav',
+            size: aud.size || 0,
+            dataUrl: audioDataUrl, // data URL（如果有）
+            url: finalAudioUrl, // 完整的URL用于播放（优先使用aud.url，否则从filename构建）
+            filename: aud.filename
+          };
+          // 确保hasAudio标志被设置
+          message.hasAudio = true;
+          
+          // 调试日志
+          console.log('加载历史消息，找到音频信息:', {
+            name: message.audio.name,
+            url: message.audio.url,
+            filename: message.audio.filename,
+            hasUrl: !!message.audio.url,
+            hasDataUrl: !!message.audio.dataUrl
+          });
+          message.hasAudio = true;
+        }
+        
+        // 添加附件信息（如果后端返回了）
+        // 注意：使用 files 字段，与 ChatWindow 组件保持一致
+        if ((msg as any).attachments && Array.isArray((msg as any).attachments)) {
+          // 构建完整的附件URL（如果是相对路径，需要加上API基础路径）
+          const getFullUrl = (url: string | undefined) => {
+            if (!url) return undefined;
+            // 如果是data URL，直接返回
+            if (url.startsWith('data:')) return url;
+            // 如果是绝对URL，直接返回
+            if (url.startsWith('http://') || url.startsWith('https://')) return url;
+            // 如果是相对路径，加上API基础路径
+            const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:3002' : 'http://localhost:3002');
+            // 确保URL以/开头，然后拼接API_BASE_URL
+            const cleanUrl = url.startsWith('/') ? url : `/${url}`;
+            return `${API_BASE_URL}${cleanUrl}`;
+          };
+          
+          // 使用 files 字段，与 ChatWindow 组件保持一致
+          message.files = (msg as any).attachments.map((att: any) => ({
+            name: att.originalName || att.name || '附件',
+            url: getFullUrl(att.url) || att.url,
+            filename: att.filename,
+            mimeType: att.mimeType || att.type,
+            size: att.size || 0
+          }));
+        }
+        
+        return message;
+      });
       
       // 如果是加载更早的消息（分页），则追加到现有消息前面
       if (beforeMessageId) {
@@ -287,19 +423,54 @@ export const ChatPage: React.FC<ChatPageProps> = ({ isLoggedIn, onLogout }) => {
     }));
   }, []);
 
-  const handleSendMessage = async (content: string, files?: File[]) => {
+  const handleSendMessage = async (content: string, parsedFiles?: ParsedFileInfo[]) => {
     let messageContent = content;
-    if (files && files.length > 0) {
-      if (content.trim()) {
-        messageContent = content;
-      } else {
-        messageContent = '用抖音商家知识库解读附件内容';
+    
+    // 从已解析的文件中提取信息
+    const imageFile = parsedFiles?.find(f => f.type === 'image');
+    const audioFile = parsedFiles?.find(f => f.type === 'audio');
+    const attachmentFiles = parsedFiles?.filter(f => f.type === 'attachment');
+    
+    // 调试：检查parsedFiles
+    console.log('handleSendMessage - parsedFiles:', {
+      parsedFilesCount: parsedFiles?.length || 0,
+      parsedFiles: parsedFiles,
+      audioFile: audioFile,
+      imageFile: imageFile,
+      attachmentFiles: attachmentFiles
+    });
+    
+    // 调试日志：检查音频文件信息
+    if (audioFile) {
+      console.log('找到音频文件:', {
+        id: audioFile.id,
+        url: audioFile.url,
+        filename: audioFile.filename,
+        originalName: audioFile.originalName,
+        type: audioFile.type,
+        hasPreview: !!audioFile.preview,
+        preview: audioFile.preview,
+        status: audioFile.status,
+        allKeys: Object.keys(audioFile)
+      });
+    } else {
+      console.log('未找到音频文件，parsedFiles:', parsedFiles);
+    }
+    
+    // 如果只有音频或图片，设置默认消息内容（确保消息有内容显示）
+    // 注意：附件文件不需要设置默认文本，后端会自动处理
+    if ((audioFile || imageFile) && !content.trim() && (!attachmentFiles || attachmentFiles.length === 0)) {
+      if (audioFile) {
+        messageContent = '语音输入';
+      } else if (imageFile) {
+        messageContent = '图片输入';
       }
     }
     
-    // 确保消息内容不为空
-    if (!messageContent || messageContent.trim().length === 0) {
-      console.warn('消息内容为空，取消发送');
+    // 确保消息内容、图片、语音或附件至少有一个
+    // 如果有附件文件，即使文本为空也允许发送（后端会自动添加提示词）
+    if ((!messageContent || messageContent.trim().length === 0) && !imageFile && !audioFile && (!attachmentFiles || attachmentFiles.length === 0)) {
+      console.warn('消息内容、图片、语音和附件都为空，取消发送');
       return;
     }
 
@@ -314,10 +485,55 @@ export const ChatPage: React.FC<ChatPageProps> = ({ isLoggedIn, onLogout }) => {
       role: MessageRole.User,
       content: messageContent,
       timestamp: Date.now(),
-      files: files,
+      files: attachmentFiles?.map(f => ({
+        id: f.id,
+        name: f.originalName,
+        type: f.mimeType,
+        url: f.url,
+        size: f.size
+      })) as any,
+      image: imageFile ? {
+        name: imageFile.originalName,
+        type: imageFile.mimeType,
+        size: imageFile.size,
+        url: imageFile.url,
+        dataUrl: imageFile.preview
+      } : undefined,
+      audio: audioFile ? {
+        name: audioFile.originalName,
+        type: audioFile.mimeType,
+        size: audioFile.size,
+        url: audioFile.url || undefined, // 后端返回的URL（优先使用）
+        filename: audioFile.filename,
+        dataUrl: audioFile.preview || undefined // 本地预览URL（blob URL），用于立即播放
+      } : undefined,
+      hasAudio: !!audioFile,
     };
+    
+    // 调试日志：检查创建的用户消息中的音频信息
+    console.log('创建用户消息，音频信息:', {
+      hasAudio: !!audioFile,
+      audioFile: audioFile,
+      audioFilePreview: audioFile?.preview,
+      audioFileUrl: audioFile?.url,
+      audio: newUserMessage.audio,
+      hasAudioFlag: newUserMessage.hasAudio,
+      audioDataUrl: newUserMessage.audio?.dataUrl,
+      audioUrl: newUserMessage.audio?.url,
+      willShowPlayer: !!(newUserMessage.audio && (newUserMessage.audio.dataUrl || newUserMessage.audio.url)),
+      audioObjectKeys: newUserMessage.audio ? Object.keys(newUserMessage.audio) : []
+    });
 
     // 立即更新消息（确保用户消息显示）
+    console.log('添加用户消息到列表:', {
+      message_id: newUserMessage.message_id,
+      hasContent: !!newUserMessage.content,
+      contentLength: newUserMessage.content?.length || 0,
+      hasAudio: !!newUserMessage.audio,
+      hasImage: !!newUserMessage.image,
+      hasFiles: !!(newUserMessage.files && newUserMessage.files.length > 0),
+      audio: newUserMessage.audio
+    });
     setMessages((prev) => [...prev, newUserMessage]);
 
     // 创建 AI 响应消息（流式更新）
@@ -332,10 +548,24 @@ export const ChatPage: React.FC<ChatPageProps> = ({ isLoggedIn, onLogout }) => {
     };
     setMessages((prev) => [...prev, aiResponse]);
 
-    // 调用 RAG Chat API
+    // 调用 RAG Chat API（使用已解析的文件信息）
     const history = buildHistory(messages);
     
-    await chatWithRAG(messageContent, history, currentSessionId || undefined, {
+    // 构建提取的文本（包含所有文件的解析内容）
+    let extractedText = messageContent;
+    if (parsedFiles && parsedFiles.length > 0) {
+      const extractedTexts = parsedFiles
+        .filter(f => f.status === 'completed' && f.extractedText)
+        .map(f => f.extractedText);
+      if (extractedTexts.length > 0) {
+        extractedText = messageContent 
+          ? `${messageContent}\n\n${extractedTexts.join('\n\n')}`
+          : extractedTexts.join('\n\n');
+      }
+    }
+    
+    // 使用已解析的文件信息发送请求
+    await chatWithRAG(extractedText, history, currentSessionId || undefined, imageFile, audioFile, attachmentFiles, {
       onToken: (token) => {
         // 流式更新 AI 响应内容
         setMessages((prev) => 
@@ -369,10 +599,17 @@ export const ChatPage: React.FC<ChatPageProps> = ({ isLoggedIn, onLogout }) => {
           });
         }
       },
-      onDone: (finalContent, references) => {
+      onDone: (finalContent, references, userMessageImage, userMessageAudio) => {
         // 完成时更新最终内容并移除 streaming 状态，同时保存引用信息
-        console.log('收到完成回调:', { finalContent: finalContent?.substring(0, 50), references, referencesCount: references?.length || 0 });
+        console.log('收到完成回调:', { 
+          finalContent: finalContent?.substring(0, 50), 
+          references, 
+          referencesCount: references?.length || 0,
+          hasImage: !!userMessageImage,
+          hasAudio: !!userMessageAudio
+        });
         
+        // 更新AI消息
         setMessages((prev) =>
           prev.map((msg) =>
             msg.message_id === aiMessageId
@@ -380,6 +617,36 @@ export const ChatPage: React.FC<ChatPageProps> = ({ isLoggedIn, onLogout }) => {
               : msg
           )
         );
+        
+        // 更新用户消息的图片和音频信息（如果后端返回了）
+        if (userMessageImage || userMessageAudio) {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.message_id === newUserMessage.message_id
+                ? {
+                    ...msg,
+                    image: userMessageImage ? {
+                      name: userMessageImage.name,
+                      type: userMessageImage.type,
+                      size: userMessageImage.size,
+                      dataUrl: userMessageImage.dataUrl,
+                      url: userMessageImage.url, // 添加URL字段
+                      filename: userMessageImage.filename
+                    } : msg.image,
+                    audio: userMessageAudio ? {
+                      name: userMessageAudio.name,
+                      type: userMessageAudio.type,
+                      size: userMessageAudio.size,
+                      dataUrl: msg.audio?.dataUrl || userMessageAudio.dataUrl, // 保留本地预览URL（如果有）
+                      url: userMessageAudio.url, // 后端返回的URL
+                      filename: userMessageAudio.filename
+                    } : msg.audio,
+                    hasAudio: userMessageAudio ? true : msg.hasAudio // 确保hasAudio标志被设置
+                  }
+                : msg
+            )
+          );
+        }
         
         // 如果有引用，记录日志
         if (references && references.length > 0) {

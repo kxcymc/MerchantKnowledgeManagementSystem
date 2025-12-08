@@ -2,6 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs-extra');
+const multer = require('multer');
 const dbService = require('../services/dbService');
 const ragService = require('../services/ragService');
 const memoryService = require('../services/memoryService');
@@ -9,8 +10,91 @@ const clusterService = require('../services/clusterService');
 const llmService = require('../services/llmService');
 const logger = require('../../../shared/utils/logger');
 const config = require('../config');
+const {
+  buildMultimodalMessage,
+  extractTextFromMultimodalMessage,
+  validateInput,
+  generateImageInfo,
+  generateAudioInfo,
+  buildStorageContent,
+  parseStorageContent
+} = require('../utils/multimodalInputHandler');
+const fileStorageService = require('../utils/fileStorageService');
+const multimodalService = require('../services/multimodalService');
+const fileParserService = require('../utils/fileParserService');
 
 const router = express.Router();
+
+// 配置multer用于文件上传（内存存储，不保存到磁盘）
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB限制
+  },
+  fileFilter: (req, file, cb) => {
+    // 允许图片、音频和附件文件（PDF、Word、文本等）
+    const allowedMimes = [
+      // 图片
+      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+      // 音频
+      'audio/wav', 'audio/mp3', 'audio/mpeg', 'audio/m4a', 'audio/webm', 'audio/ogg',
+      // 附件文件
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/plain',
+      'text/markdown',
+      'application/json'
+    ];
+    
+    // 检查文件字段名，如果是attachment字段，允许更多类型
+    if (file.fieldname === 'attachment') {
+      // 附件字段：允许所有常见文档类型
+      const attachmentMimes = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'text/plain',
+        'text/markdown',
+        'application/json'
+      ];
+      if (attachmentMimes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        // 也允许通过扩展名判断
+        const ext = require('path').extname(file.originalname).toLowerCase();
+        const allowedExts = ['.pdf', '.doc', '.docx', '.txt', '.md', '.json', '.xls', '.xlsx'];
+        if (allowedExts.includes(ext)) {
+          cb(null, true);
+        } else {
+          cb(new Error(`不支持的附件文件类型: ${file.mimetype}，仅支持 PDF、Word、文本等文档`));
+        }
+      }
+    } else if (file.fieldname === 'image') {
+      // 图片字段：只允许图片类型
+      const imageMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      if (imageMimes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error('不支持的文件类型，图片字段仅支持图片文件'));
+      }
+    } else if (file.fieldname === 'audio') {
+      // 音频字段：只允许音频类型
+      const audioMimes = ['audio/wav', 'audio/mp3', 'audio/mpeg', 'audio/m4a', 'audio/webm', 'audio/ogg'];
+      if (audioMimes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error('不支持的文件类型，音频字段仅支持音频文件'));
+      }
+    } else {
+      cb(null, true); // 其他字段允许通过
+    }
+  }
+});
 
 // ============================================
 // API 文档根路径
@@ -347,6 +431,9 @@ router.get('/get-chat-history/:session_id', async (req, res) => {
     }
     
     const formattedMessages = messages.map(msg => {
+      // 解析content，提取文本、图片、音频信息
+      const parsedContent = parseStorageContent(msg.content);
+      
       const citations = citationsMap.get(msg.message_id) || [];
       // 按 knowledge_id 分组，收集该消息的所有引用
       const refMap = new Map();
@@ -405,14 +492,119 @@ router.get('/get-chat-history/:session_id', async (req, res) => {
       
       const references = Array.from(refMap.values());
       
-      return {
+      // 构建返回对象，包含解析后的内容
+      // 移除图片、音频、附件解析后的内容（如 [图片内容：...]、[语音内容：...]、[附件文件内容：...]）
+      let displayText = parsedContent.text || '';
+      // 移除解析后的文件内容，避免在前端显示
+      displayText = displayText.replace(/\[图片内容[：:][\s\S]*?\]/g, '');
+      displayText = displayText.replace(/\[语音内容[：:][\s\S]*?\]/g, '');
+      displayText = displayText.replace(/\[附件文件内容[：:][\s\S]*?\]/g, '');
+      // 移除"总结文件:文件名 内容:"这样的格式（附件解析后的内容）
+      displayText = displayText.replace(/总结文件[：:][^\n]*\s*内容[：:][\s\S]*?(?=\n\n|\n[A-Z]|$)/g, '');
+      displayText = displayText.replace(/文件[：:][^\n]*\n内容[：:][\s\S]*?(?=\n\n|\n文件[：:]|$)/g, '');
+      // 移除"文件：文件名\n内容：..."格式（更通用的匹配，匹配到段落结束或文档结束）
+      displayText = displayText.replace(/文件[：:][^\n]+\n内容[：:][\s\S]*?(?=\n\n|$)/g, '');
+      // 移除以"文件："开头，后面跟着文件名和"内容："的大段文本（包括单行和多行格式）
+      displayText = displayText.replace(/文件[：:][^\n]+\s*内容[：:][\s\S]*?(?=\n\n|$)/g, '');
+      // 清理多余的空白行
+      displayText = displayText.replace(/\n\s*\n\s*\n/g, '\n\n');
+      displayText = displayText.trim();
+      
+      const result = {
         message_id: msg.message_id,
         role: msg.role,
-        content: msg.content,
+        content: displayText, // 文本内容（已移除解析后的文件内容）
         created_at: msg.created_at,
         sequence_num: msg.sequence_num,
         references: references
       };
+      
+      // 如果有图片，添加图片信息（支持URL对象或data URL字符串）
+      if (parsedContent.image) {
+        if (typeof parsedContent.image === 'string') {
+          // 向后兼容：data URL字符串
+          const imageMimeType = parsedContent.image.split(';')[0].split(':')[1] || 'image/jpeg';
+          result.image = {
+            name: 'image',
+            type: imageMimeType,
+            size: 0,
+            dataUrl: parsedContent.image
+          };
+        } else if (typeof parsedContent.image === 'object' && parsedContent.image.url) {
+          // 新格式：URL对象
+          result.image = {
+            name: parsedContent.image.originalName || 'image',
+            type: parsedContent.image.mimeType || 'image/jpeg',
+            size: parsedContent.image.size || 0,
+            url: parsedContent.image.url,
+            filename: parsedContent.image.filename
+          };
+        }
+      }
+      
+      // 如果有音频，添加音频信息（支持URL对象或data URL字符串）
+      if (parsedContent.audio) {
+        logger.info('解析音频信息', {
+          messageId: msg.message_id,
+          audioType: typeof parsedContent.audio,
+          audioKeys: typeof parsedContent.audio === 'object' ? Object.keys(parsedContent.audio) : [],
+          hasUrl: typeof parsedContent.audio === 'object' ? !!parsedContent.audio.url : false,
+          hasFilename: typeof parsedContent.audio === 'object' ? !!parsedContent.audio.filename : false
+        });
+        
+        if (typeof parsedContent.audio === 'string') {
+          // 向后兼容：data URL字符串
+          const audioMimeType = parsedContent.audio.split(';')[0].split(':')[1] || 'audio/wav';
+          result.audio = {
+            name: 'audio',
+            type: audioMimeType,
+            size: 0,
+            dataUrl: parsedContent.audio
+          };
+        } else if (typeof parsedContent.audio === 'object') {
+          // 新格式：URL对象
+          // 如果有url字段，直接使用；否则从filename构建URL
+          let audioUrl = parsedContent.audio.url;
+          if (!audioUrl && parsedContent.audio.filename) {
+            // 从filename构建URL（相对路径）
+            audioUrl = `/api/chat-files/${parsedContent.audio.filename}`;
+          }
+          
+          result.audio = {
+            name: parsedContent.audio.originalName || 'audio',
+            type: parsedContent.audio.mimeType || 'audio/wav',
+            size: parsedContent.audio.size || 0,
+            url: audioUrl, // 确保有URL（从url字段或filename构建）
+            filename: parsedContent.audio.filename
+          };
+          
+          logger.info('音频信息已添加到结果', {
+            messageId: msg.message_id,
+            audioName: result.audio.name,
+            audioUrl: result.audio.url,
+            audioFilename: result.audio.filename
+          });
+        }
+      } else {
+        logger.info('消息没有音频信息', {
+          messageId: msg.message_id,
+          hasParsedContent: !!parsedContent,
+          parsedContentKeys: Object.keys(parsedContent || {})
+        });
+      }
+      
+      // 如果有附件，添加附件信息
+      if (parsedContent.attachments && parsedContent.attachments.length > 0) {
+        result.attachments = parsedContent.attachments.map((att) => ({
+          url: att.url,
+          filename: att.filename,
+          originalName: att.originalName,
+          mimeType: att.mimeType,
+          size: att.size
+        }));
+      }
+      
+      return result;
     });
     
     // ========== 7. 判断是否还有更多数据 ==========
@@ -451,10 +643,35 @@ router.get('/get-chat-history/:session_id', async (req, res) => {
 // ============================================
 // 接口4: 发送消息并获取AI回复
 // POST /api/chat
+// 支持多模态：图片和语音文件上传
 // ============================================
-router.post('/chat', async (req, res) => {
+router.post('/chat', upload.fields([
+  { name: 'image', maxCount: 1 },
+  { name: 'audio', maxCount: 1 },
+  { name: 'attachment', maxCount: 10 } // 保留原有的附件支持
+]), (err, req, res, next) => {
+  // 处理multer错误
+  if (err) {
+    logger.error('文件上传错误', { error: err.message });
+    return res.status(400).json({
+      error: '文件上传失败',
+      message: err.message || '不支持的文件类型或文件过大'
+    });
+  }
+  next();
+}, async (req, res) => {
   try {
-    const { session_id, message_id, content, message, history } = req.body;
+    const { session_id, message_id, content, message, history, parsedFiles } = req.body;
+    const files = req.files || {};
+    const imageFile = files.image && files.image[0];
+    const audioFile = files.audio && files.audio[0];
+    
+    // 处理多模态输入 - 端到端模式：使用模块化工具函数
+    const textContent = content || message || '';
+    const attachmentFiles = files.attachment || [];
+    
+    // 检查是否使用已解析的文件信息
+    const useParsedFiles = parsedFiles && (parsedFiles.image || parsedFiles.audio || (parsedFiles.attachments && parsedFiles.attachments.length > 0));
     
     // 调试日志
     logger.info('收到聊天请求', {
@@ -463,20 +680,42 @@ router.post('/chat', async (req, res) => {
       contentLength: content?.length || 0,
       messageLength: message?.length || 0,
       session_id,
-      historyLength: history?.length || 0
+      historyLength: history?.length || 0,
+      hasImage: !!imageFile,
+      hasAudio: !!audioFile,
+      hasAttachments: attachmentFiles.length > 0,
+      attachmentCount: attachmentFiles.length,
+      attachmentNames: attachmentFiles.map(f => f.originalname || f.name || 'unknown'),
+      allFileFields: Object.keys(files),
+      useParsedFiles: useParsedFiles,
+      hasParsedImage: !!parsedFiles?.image,
+      hasParsedAudio: !!parsedFiles?.audio,
+      hasParsedAttachments: parsedFiles?.attachments?.length > 0
     });
     
-    // 兼容两种请求格式：content 或 message
-    const actualContent = content || message;
-
-    // 只验证 content 是必填的，session_id 和 message_id 可选
-    if (!actualContent || (typeof actualContent === 'string' && actualContent.trim().length === 0)) {
+    // 验证输入（如果有文件或已解析的文件，也视为有效输入）
+    const hasFilesInput = attachmentFiles.length > 0 || imageFile || audioFile || useParsedFiles;
+    if (!validateInput({ text: textContent, imageFile, audioFile }) && !hasFilesInput) {
       logger.warn('请求参数验证失败', { content, message, body: req.body });
       return res.status(400).json({
         error: '参数不完整',
-        message: 'content 或 message 为必填项，且不能为空字符串，session_id 和 message_id 可选（不传则自动生成）'
+        message: '需要提供文本内容、图片、语音或附件文件中的至少一种，session_id 和 message_id 可选（不传则自动生成）'
       });
     }
+    
+    // 构建多模态消息（插槽式工具函数）
+    // 注意：附件文件不在这里处理，它们会被保存到本地存储
+    const multimodalMessage = buildMultimodalMessage({
+      text: textContent,
+      imageFile,
+      audioFile,
+      otherFiles: [] // 附件文件单独处理，不在这里传递
+    });
+    
+    // 提取文本内容（用于问题分类和显示）
+    const textForClassification = multimodalMessage 
+      ? extractTextFromMultimodalMessage(multimodalMessage) 
+      : textContent;
     
     // 转换 history 格式（如果提供）
     let chatHistory = [];
@@ -522,17 +761,17 @@ router.post('/chat', async (req, res) => {
     // 2. 创建或获取会话
     let session;
     if (isNewSession) {
-      // 创建新会话，标题先使用首条消息
-      const title = actualContent.length > 50 ? actualContent.substring(0, 50) + '...' : actualContent;
+      // 创建新会话，标题先使用首条消息（使用文本内容）
+      const title = textForClassification.length > 50 ? textForClassification.substring(0, 50) + '...' : textForClassification;
       await dbService.createSession(actualSessionId, title);
       session = await dbService.getSessionById(actualSessionId);
     } else {
       // 会话已存在，获取会话信息
       session = await dbService.getSessionById(actualSessionId);
       // 更新会话标题（如果还没有标题）
-      if (!session.title && actualContent.length <= 50) {
-        await dbService.updateSession(actualSessionId, { title: actualContent });
-        session.title = actualContent;
+      if (!session.title && textForClassification.length <= 50) {
+        await dbService.updateSession(actualSessionId, { title: textForClassification });
+        session.title = textForClassification;
       }
     }
 
@@ -543,55 +782,390 @@ router.post('/chat', async (req, res) => {
       logger.info('自动生成 message_id', { message_id: actualMessageId });
     }
 
+    // 3.5. 处理文件：保存图片、音频和附件到本地存储
+    const savedAttachments = [];
+    let savedImageFile = null;
+    let savedAudioFile = null;
+    
+    // 如果使用已解析的文件信息，直接从parsedFiles中获取文件信息
+    if (useParsedFiles) {
+      logger.info('使用已解析的文件信息', {
+        hasImage: !!parsedFiles.image,
+        hasAudio: !!parsedFiles.audio,
+        attachmentCount: parsedFiles.attachments?.length || 0
+      });
+      
+      // 处理已解析的图片
+      if (parsedFiles.image) {
+        savedImageFile = {
+          url: parsedFiles.image.url,
+          filename: parsedFiles.image.filename,
+          originalName: parsedFiles.image.originalName,
+          mimeType: parsedFiles.image.mimeType,
+          size: parsedFiles.image.size,
+          path: fileStorageService.getFilePath(parsedFiles.image.filename)
+        };
+      }
+      
+      // 处理已解析的音频
+      if (parsedFiles.audio) {
+        savedAudioFile = {
+          url: parsedFiles.audio.url,
+          filename: parsedFiles.audio.filename,
+          originalName: parsedFiles.audio.originalName,
+          mimeType: parsedFiles.audio.mimeType,
+          size: parsedFiles.audio.size,
+          path: fileStorageService.getFilePath(parsedFiles.audio.filename)
+        };
+      }
+      
+      // 处理已解析的附件
+      if (parsedFiles.attachments && parsedFiles.attachments.length > 0) {
+        for (const att of parsedFiles.attachments) {
+          savedAttachments.push({
+            url: att.url,
+            filename: att.filename,
+            originalName: att.originalName,
+            mimeType: att.mimeType,
+            size: att.size,
+            path: fileStorageService.getFilePath(att.filename)
+          });
+        }
+      }
+    }
+    
+    // 保存图片文件（如果通过multer上传）
+    if (imageFile && !useParsedFiles) {
+      try {
+        // 修复文件名编码问题（multer可能使用latin1编码）
+        if (imageFile.originalname) {
+          try {
+            const decoded = Buffer.from(imageFile.originalname, 'latin1').toString('utf8');
+            if (decoded !== imageFile.originalname) {
+              imageFile.originalname = decoded;
+            }
+          } catch (e) {
+            // 解码失败，使用原名称
+          }
+        }
+        
+        savedImageFile = await fileStorageService.saveFile(imageFile, actualMessageId);
+        logger.info('图片文件已保存', { 
+          messageId: actualMessageId, 
+          filename: savedImageFile.filename,
+          originalName: savedImageFile.originalName 
+        });
+      } catch (error) {
+        logger.error('保存图片文件失败', { error: error.message, filename: imageFile.originalname });
+        // 文件保存失败不影响主流程，但记录错误
+      }
+    }
+    
+    // 保存音频文件（如果通过multer上传）
+    if (audioFile && !useParsedFiles) {
+      try {
+        // 修复文件名编码问题（multer可能使用latin1编码）
+        if (audioFile.originalname) {
+          try {
+            const decoded = Buffer.from(audioFile.originalname, 'latin1').toString('utf8');
+            if (decoded !== audioFile.originalname) {
+              audioFile.originalname = decoded;
+            }
+          } catch (e) {
+            // 解码失败，使用原名称
+          }
+        }
+        
+        savedAudioFile = await fileStorageService.saveFile(audioFile, actualMessageId);
+        logger.info('音频文件已保存', { 
+          messageId: actualMessageId, 
+          filename: savedAudioFile.filename,
+          originalName: savedAudioFile.originalName 
+        });
+      } catch (error) {
+        logger.error('保存音频文件失败', { error: error.message, filename: audioFile.originalname });
+        // 文件保存失败不影响主流程，但记录错误
+      }
+    }
+    
+    // 保存附件文件（如果通过multer上传）
+    if (attachmentFiles.length > 0 && !useParsedFiles) {
+      logger.info('开始保存附件文件', { 
+        count: attachmentFiles.length,
+        files: attachmentFiles.map(f => ({
+          originalname: f.originalname,
+          mimetype: f.mimetype,
+          size: f.size,
+          fieldname: f.fieldname
+        }))
+      });
+      
+      for (const file of attachmentFiles) {
+        try {
+          // 修复文件名编码问题（multer可能使用latin1编码）
+          if (file.originalname) {
+            try {
+              const decoded = Buffer.from(file.originalname, 'latin1').toString('utf8');
+              if (decoded !== file.originalname) {
+                file.originalname = decoded;
+                logger.info('文件名编码已修复', { 
+                  original: file.originalname, 
+                  decoded 
+                });
+              }
+            } catch (e) {
+              // 解码失败，使用原名称
+              logger.warn('文件名编码修复失败', { error: e.message });
+            }
+          }
+          
+          // 检查文件对象是否有效
+          if (!file || !file.buffer) {
+            logger.error('附件文件对象无效', { 
+              file: file ? { originalname: file.originalname, mimetype: file.mimetype } : null 
+            });
+            continue;
+          }
+          
+          logger.info('正在保存附件文件', { 
+            originalname: file.originalname,
+            mimetype: file.mimetype,
+            size: file.size,
+            messageId: actualMessageId
+          });
+          
+          const fileInfo = await fileStorageService.saveFile(file, actualMessageId);
+          savedAttachments.push(fileInfo);
+          logger.info('附件文件已保存成功', { 
+            messageId: actualMessageId, 
+            filename: fileInfo.filename,
+            originalName: fileInfo.originalName,
+            url: fileInfo.url,
+            path: fileInfo.path
+          });
+        } catch (error) {
+          logger.error('保存附件文件失败', { 
+            error: error.message,
+            stack: error.stack,
+            filename: file?.originalname,
+            messageId: actualMessageId
+          });
+          // 文件保存失败不影响主流程，但记录错误
+        }
+      }
+      
+      logger.info('附件文件保存完成', { 
+        total: attachmentFiles.length,
+        saved: savedAttachments.length,
+        savedFiles: savedAttachments.map(f => f.originalName)
+      });
+    } else {
+      logger.info('没有附件文件需要保存');
+    }
+
     // 4. 获取当前会话的消息数量，确定 sequence_num
     const existingMessages = await dbService.getMessagesBySessionId(actualSessionId);
     const sequenceNum = existingMessages.length + 1;
+    
+    // 4.3. 判断是否有附件文件（仅附件文件，不包括图片和音频）
+    // 注意：附件文件现在也走RAG路线，解析内容后添加提示词"商家知识库解读文档内容"，然后走RAG
+    const hasAttachments = savedAttachments.length > 0;
 
-    // 5. 保存用户消息
+    // 4.5. 构建存储格式的content（只存储URL引用，不存储base64数据）
+    // 注意：text字段只保存用户输入的原始文本，不包含解析后的文件内容
+    // 解析后的内容（extractedText）仅用于LLM处理，不保存到数据库的content字段
+    const storageContent = buildStorageContent({
+      text: textContent, // 只保存用户输入的原始文本，不包含extractedText
+      attachments: savedAttachments,
+      savedImageFile,
+      savedAudioFile
+    });
+
+    // 5. 保存用户消息（使用存储格式的content，包含图片/音频base64和附件URL）
     const questionHash = crypto
       .createHash('md5')
-      .update(actualContent.trim().toLowerCase())
+      .update(textForClassification.trim().toLowerCase())
       .digest('hex');
     
-    const tokenCount = memoryService.estimateTokens(actualContent);
+    const tokenCount = memoryService.estimateTokens(textForClassification);
     
     await dbService.createMessage({
       message_id: actualMessageId,  // 使用实际的消息ID（传入的或生成的）
       session_id: actualSessionId,   // 使用实际的会话ID（传入的或生成的）
       role: 'user',
-      content: actualContent,
+      content: storageContent, // 存储格式：JSON字符串（包含图片/音频/附件）或纯文本
       sequence_num: sequenceNum,
       token_count: tokenCount,
       question_hash: questionHash
     });
 
-    // 5.5. 问题分类：判断是日常问答还是专业问题（用于决定是否聚类）
-    let questionClassification = await ragService.classifyQuestion(actualContent);
+    // 5.4. 提取图片和音频信息（先提取信息，再用提示词模板）
+    // 如果使用已解析的文件，直接使用extractedText；否则需要重新提取
+    let extractedText = textForClassification;
+    
+    // 如果使用已解析的文件，将提取的文本拼接到extractedText中
+    if (useParsedFiles) {
+      const extractedTexts = [];
+      const attachmentTexts = [];
+      
+      if (parsedFiles.image && parsedFiles.image.extractedText) {
+        extractedTexts.push(parsedFiles.image.extractedText);
+      }
+      if (parsedFiles.audio && parsedFiles.audio.extractedText) {
+        extractedTexts.push(parsedFiles.audio.extractedText);
+      }
+      if (parsedFiles.attachments && parsedFiles.attachments.length > 0) {
+        // 附件文件的提取文本单独处理，需要添加提示词
+        parsedFiles.attachments
+          .filter(att => att.extractedText)
+          .forEach(att => {
+            attachmentTexts.push(att.extractedText);
+          });
+      }
+      
+      // 先拼接图片和音频的提取文本
+      if (extractedTexts.length > 0) {
+        extractedText = textContent
+          ? `${textContent}\n\n${extractedTexts.join('\n\n')}`
+          : extractedTexts.join('\n\n');
+      } else {
+        extractedText = textContent || '';
+      }
+      
+      // 处理附件文件：如果用户没有输入文本，自动添加提示词
+      if (attachmentTexts.length > 0) {
+        const attachmentText = attachmentTexts.join('\n\n---\n\n');
+        if (!extractedText || !extractedText.trim()) {
+          // 用户没有输入文本，自动添加提示词
+          extractedText = `用抖音商家知识库解读附件内容\n\n${attachmentText}`;
+        } else {
+          // 用户有输入文本，在文本后添加提示词和附件内容
+          extractedText = `${extractedText}\n\n请使用商家知识库解读以下文档内容：\n\n${attachmentText}`;
+        }
+      }
+    } else if (imageFile) {
+      try {
+        logger.info('开始提取图片信息', { filename: imageFile.originalname });
+        const imageDescription = await multimodalService.understandImage(
+          imageFile.buffer,
+          textContent || '请详细描述这张图片的内容',
+          'buffer'
+        );
+        // 图片描述：保持和文本输入一致的格式
+        extractedText = textContent 
+          ? `${textContent}\n\n[图片内容：${imageDescription}]`
+          : `[图片内容：${imageDescription}]`;
+        logger.info('图片信息提取成功', { descriptionLength: imageDescription.length });
+      } catch (error) {
+        logger.error('图片信息提取失败', { error: error.message });
+        // 提取失败时，使用原始文本
+        extractedText = textContent || '[图片上传失败，无法提取内容]';
+      }
+    } else if (audioFile) {
+      try {
+        // 确保文件名已正确解码
+        const audioFileName = audioFile.originalname || 'audio';
+        logger.info('开始提取音频信息', { filename: audioFileName });
+        const audioFormat = audioFileName.split('.').pop() || 'webm';
+        const audioText = await multimodalService.transcribeAudio(audioFile.buffer, audioFormat);
+        // 音频文本：保持和文本输入一致的格式
+        extractedText = textContent 
+          ? `${textContent}\n\n[语音内容：${audioText}]`
+          : `[语音内容：${audioText}]`;
+        logger.info('音频信息提取成功', { textLength: audioText.length });
+      } catch (error) {
+        logger.error('音频信息提取失败', { error: error.message });
+        // 提取失败时，使用原始文本
+        extractedText = textContent || '[语音识别失败，无法提取内容]';
+      }
+    }
+    
+    // 5.4.1. 解析附件文件内容（如果有附件文件，解析后与用户输入拼接）
+    // 如果使用已解析的文件，跳过这一步（内容已经在extractedText中）
+    let parsedAttachmentContents = [];
+    if (hasAttachments && savedAttachments.length > 0 && !useParsedFiles) {
+      logger.info('开始解析附件文件内容', { 
+        attachmentCount: savedAttachments.length,
+        attachmentNames: savedAttachments.map(a => a.originalName)
+      });
+      
+      for (const attachment of savedAttachments) {
+        try {
+          logger.info('解析附件文件', { filename: attachment.filename, originalName: attachment.originalName });
+          const content = await fileParserService.parseFile({
+            path: attachment.path || fileStorageService.getFilePath(attachment.filename),
+            filename: attachment.filename,
+            mimeType: attachment.mimeType,
+            originalName: attachment.originalName
+          });
+          parsedAttachmentContents.push({
+            name: attachment.originalName,
+            content: content
+          });
+          logger.info('附件文件解析成功', { filename: attachment.filename, contentLength: content.length });
+        } catch (error) {
+          logger.error('附件文件解析失败', { error: error.message, filename: attachment.filename });
+          parsedAttachmentContents.push({
+            name: attachment.originalName,
+            content: `[文件解析失败：${error.message}]`
+          });
+        }
+      }
+      
+      // 将解析后的附件内容拼接到extractedText中，并添加提示词
+      if (parsedAttachmentContents.length > 0) {
+        const attachmentText = parsedAttachmentContents.map(f => 
+          `文件：${f.name}\n内容：\n${f.content}`
+        ).join('\n\n---\n\n');
+        
+        // 如果用户没有输入文本，自动添加提示词：用抖音商家知识库解读附件内容
+        // 如果用户有输入文本，则在文本后添加提示词
+        if (!extractedText || !extractedText.trim()) {
+          // 用户没有输入文本，自动添加提示词
+          extractedText = `用抖音商家知识库解读附件内容\n\n${attachmentText}`;
+        } else {
+          // 用户有输入文本，在文本后添加提示词和附件内容
+          extractedText = `${extractedText}\n\n请使用商家知识库解读以下文档内容：\n\n${attachmentText}`;
+        }
+      }
+    }
+    
+    // 5.5. 问题分类：判断是日常问答还是专业问题（使用提取后的文本，包含附件内容）
+    // 注意：即使有附件文件，也进行问题分类，然后走RAG路线
+    let questionClassification = await ragService.classifyQuestion(extractedText);
     let isProfessional = questionClassification.isProfessional;
     
-    // 5.6. 仅对专业问题进行聚类和统计（日常会话不进行聚类）
-    if (isProfessional) {
+    // 5.6. 仅对专业问题进行聚类和统计（日常会话不进行聚类，有附件文件时也不聚类）
+    // 注意：附件文件现在也走RAG，但附件文件的问题不进行聚类
+    if (isProfessional && !hasAttachments) {
       try {
-        await clusterService.clusterQuestion(actualContent, actualMessageId, actualSessionId);
+        await clusterService.clusterQuestion(textForClassification, actualMessageId, actualSessionId);
       } catch (error) {
         // 聚类失败不影响主流程，只记录错误
         logger.warn('问题聚类失败（不影响主流程）', {
           error: error.message,
           messageId: actualMessageId,
-          question: actualContent.substring(0, 50)
+          question: textForClassification.substring(0, 50)
         });
       }
     } else {
-      logger.info('日常问答，跳过问题聚类', { 
-        question: actualContent.substring(0, 50) 
-      });
+      if (hasAttachments) {
+        logger.info('有附件文件，跳过问题聚类', { 
+          question: textForClassification.substring(0, 50),
+          attachmentCount: savedAttachments.length
+        });
+      } else {
+        logger.info('日常问答，跳过问题聚类', { 
+          question: textForClassification.substring(0, 50) 
+        });
+      }
     }
 
     // 6. 加载历史消息到 Memory（如果需要）
     await memoryService.loadHistoryFromDB(actualSessionId);
 
-    // 7. 添加用户消息到 Memory
-    memoryService.addMessage(actualSessionId, 'user', actualContent);
+    // 7. 添加用户消息到 Memory（使用提取后的文本内容）
+    memoryService.addMessage(actualSessionId, 'user', extractedText);
 
     // 8. 检查是否请求流式响应（通过 Accept 头或 query 参数）
     const acceptStream = req.headers.accept?.includes('text/event-stream') || req.query.stream === 'true';
@@ -600,6 +1174,8 @@ router.post('/chat', async (req, res) => {
     const finalChatHistory = chatHistory.length > 0 
       ? chatHistory 
       : memoryService.getChatHistory(actualSessionId);
+    
+    // hasAttachments 已在前面定义（4.3节），这里直接使用
     
     let ragResult;
     let streamStarted = false;
@@ -618,17 +1194,66 @@ router.post('/chat', async (req, res) => {
         // 收集完整答案用于后续保存
         let fullAnswer = '';
         
-        // 流式调用 RAG 服务，实时转发 token
-        ragResult = await ragService.queryStream(actualContent, finalChatHistory, (token) => {
-          fullAnswer += token;
-          // 实时转发给前端
-          if (!res.headersSent || res.writable) {
-            res.write(`data: ${JSON.stringify({ type: 'token', content: token })}\n\n`);
+        // 根据问题分类决定是否走RAG（附件文件现在也走RAG路线）
+        // 如果是专业问题，走RAG流程（包括附件文件、图片和音频的多模态RAG）
+        // 如果是日常问题，直接调用大模型（不走RAG）
+        if (isProfessional) {
+          // 专业问题：走RAG流程（使用提取后的文本，包含附件内容）
+          if (hasAttachments) {
+            logger.info('检测到附件文件，解析内容后走RAG路线', { 
+              attachmentCount: savedAttachments.length,
+              attachmentNames: savedAttachments.map(a => a.originalName),
+              question: extractedText.substring(0, 50)
+            });
+          } else {
+            logger.info('识别为专业问题，使用知识库检索', { 
+              question: extractedText.substring(0, 50)
+            });
           }
-        });
-        
-        // 确保使用收集到的完整答案
-        ragResult.answer = fullAnswer;
+          
+          // 流式调用 RAG 服务，实时转发 token（使用提取后的文本，包含附件内容）
+          ragResult = await ragService.queryStream(extractedText, finalChatHistory, (token) => {
+            fullAnswer += token;
+            // 实时转发给前端
+            if (!res.headersSent || res.writable) {
+              res.write(`data: ${JSON.stringify({ type: 'token', content: token })}\n\n`);
+            }
+          });
+          
+          // 确保使用收集到的完整答案
+          ragResult.answer = fullAnswer;
+        } else {
+          // 日常问题：直接调用大模型（不走RAG），使用商家运营助手提示词模板
+          logger.info('识别为日常问答，直接调用大模型（不走RAG）', { 
+            question: extractedText.substring(0, 50),
+            hasAttachments: hasAttachments
+          });
+          
+          // 使用商家运营助手提示词模板
+          const chatPrompt = ragService.buildChatPrompt();
+          const promptValue = await chatPrompt.invoke({
+            chat_history: finalChatHistory,
+            question: extractedText
+          });
+          
+          const stream = await llmService.getLLM().stream(promptValue.toChatMessages());
+          for await (const chunk of stream) {
+            const content = chunk.content || '';
+            if (content) {
+              fullAnswer += content;
+              if (res.writable && !res.destroyed) {
+                res.write(`data: ${JSON.stringify({ type: 'token', content: content })}\n\n`);
+              }
+            }
+          }
+          
+          ragResult = {
+            answer: fullAnswer,
+            role: 'AI',
+            references: [],
+            hasRelevantDocs: false
+          };
+        }
       } catch (streamError) {
         // 流式响应中的错误：通过流式事件发送错误
         logger.error('RAG 流式查询失败', { error: streamError.message, stack: streamError.stack });
@@ -643,31 +1268,87 @@ router.post('/chat', async (req, res) => {
       }
     } else {
       // 非流式响应模式：等待完整结果
-      ragResult = await ragService.query(actualContent, finalChatHistory);
+      // 根据问题分类决定是否走RAG（附件文件现在也走RAG路线）
+      // 如果是专业问题，走RAG流程（包括附件文件、图片和音频的多模态RAG）
+      // 如果是日常问题，直接调用大模型（不走RAG）
+      if (isProfessional) {
+        // 专业问题：走RAG流程（使用提取后的文本，包含附件内容）
+        if (hasAttachments) {
+          logger.info('检测到附件文件，解析内容后走RAG路线', { 
+            attachmentCount: savedAttachments.length,
+            attachmentNames: savedAttachments.map(a => a.originalName),
+            question: extractedText.substring(0, 50)
+          });
+        } else {
+          logger.info('识别为专业问题，使用知识库检索', { 
+            question: extractedText.substring(0, 50)
+          });
+        }
+        
+        // 使用提取后的文本（包含附件内容）
+        ragResult = await ragService.query(extractedText, finalChatHistory);
+      } else {
+        // 日常问题：直接调用大模型（不走RAG），使用商家运营助手提示词模板
+        logger.info('识别为日常问答，直接调用大模型（不走RAG）', { 
+          question: extractedText.substring(0, 50),
+          hasAttachments: hasAttachments
+        });
+        
+        // 使用商家运营助手提示词模板
+        const chatPrompt = ragService.buildChatPrompt();
+        const promptValue = await chatPrompt.invoke({
+          chat_history: finalChatHistory,
+          question: extractedText
+        });
+        
+        const response = await llmService.getLLM().invoke(promptValue.toChatMessages());
+        
+        ragResult = {
+          answer: response.content,
+          role: 'AI',
+          references: [],
+          hasRelevantDocs: false
+        };
+      }
     }
 
     // 9. 生成 AI 消息 ID
     const aiMessageId = await dbService.getNextMessageId();
     const aiSequenceNum = sequenceNum + 1;
-    const aiTokenCount = memoryService.estimateTokens(ragResult.answer);
+    
+    // 10. 过滤AI回复中的解析内容（附件、图片、音频解析后的内容），确保不存储到数据库
+    let cleanedAnswer = ragResult.answer || '';
+    // 移除解析后的文件内容标记
+    cleanedAnswer = cleanedAnswer.replace(/\[图片内容[：:][\s\S]*?\]/g, '');
+    cleanedAnswer = cleanedAnswer.replace(/\[语音内容[：:][\s\S]*?\]/g, '');
+    cleanedAnswer = cleanedAnswer.replace(/\[附件文件内容[：:][\s\S]*?\]/g, '');
+    // 移除"总结文件:文件名 内容:"这样的格式
+    cleanedAnswer = cleanedAnswer.replace(/总结文件[：:][^\n]*\s*内容[：:][\s\S]*?(?=\n\n|\n[A-Z]|$)/g, '');
+    cleanedAnswer = cleanedAnswer.replace(/文件[：:][^\n]*\n内容[：:][\s\S]*?(?=\n\n|\n文件[：:]|$)/g, '');
+    // 清理多余的空白行
+    cleanedAnswer = cleanedAnswer.replace(/\n\s*\n\s*\n/g, '\n\n');
+    cleanedAnswer = cleanedAnswer.trim();
+    
+    const aiTokenCount = memoryService.estimateTokens(cleanedAnswer);
 
-    // 10. 保存 AI 消息
+    // 11. 保存 AI 消息（只保存清理后的内容，不包含解析内容）
     await dbService.createMessage({
       message_id: aiMessageId,
       session_id: actualSessionId,  // 使用实际的会话ID
       role: ragResult.role,
-      content: ragResult.answer,
+      content: cleanedAnswer, // 只保存清理后的内容，不包含解析内容
       sequence_num: aiSequenceNum,
       token_count: aiTokenCount
     });
 
-    // 11. 使用之前的问题分类结果（已在步骤 5.5 中完成）
+    // 12. 使用之前的问题分类结果（已在步骤 5.5 中完成）
     // 注意：RAG 查询时也会进行问题分类，但这里使用用户消息的分类结果
     
-    // 12. 保存引用关系（仅在专业问题且有引用时）
-    if (isProfessional && ragResult.hasRelevantDocs && ragResult.references && ragResult.references.length > 0) {
+    // 13. 保存引用关系（仅在专业问题且有引用时，且没有附件文件）
+    // 注意：附件文件现在也走RAG，但附件文件的问题不保存引用关系
+    if (isProfessional && !hasAttachments && ragResult.hasRelevantDocs && ragResult.references && ragResult.references.length > 0) {
       // 获取向量检索结果用于保存引用详情
-      const documents = await ragService.retrieveDocuments(actualContent);
+      const documents = await ragService.retrieveDocuments(textForClassification);
       
       for (let i = 0; i < documents.length; i++) {
         const doc = documents[i];
@@ -685,31 +1366,94 @@ router.post('/chat', async (req, res) => {
           });
         }
       }
-    } else if (isProfessional && (!ragResult.hasRelevantDocs || !ragResult.references || ragResult.references.length === 0)) {
+    } else if (isProfessional && !hasAttachments && (!ragResult.hasRelevantDocs || !ragResult.references || ragResult.references.length === 0)) {
       // 零命中问题，仅在专业问题且零命中时保存到 ZeroHitQuestion 表
       // 日常问题不保存到零命中表
       await dbService.saveZeroHitQuestion({
         message_id: actualMessageId,  // 使用实际的消息ID
         session_id: actualSessionId,   // 使用实际的会话ID
-        question_text: actualContent,
+        question_text: textForClassification,
         question_hash: questionHash
       });
     }
 
-    // 12. 添加 AI 消息到 Memory
-    memoryService.addMessage(actualSessionId, ragResult.role, ragResult.answer);
+    // 12. 添加 AI 消息到 Memory（使用清理后的内容）
+    memoryService.addMessage(actualSessionId, ragResult.role, cleanedAnswer);
 
     // 13. 检查是否需要生成摘要
     await memoryService.checkAndSummarize(actualSessionId);
 
-    // 14. 返回响应
+    // 14. 解析存储的content，提取图片、音频和附件信息（用于返回给前端）
+    const parsedContent = parseStorageContent(storageContent);
+    
+    // 处理图片信息：可能是URL对象或data URL字符串（向后兼容）
+    let imageInfo = null;
+    if (parsedContent.image) {
+      if (typeof parsedContent.image === 'string') {
+        // 向后兼容：data URL字符串
+        const imageMimeType = parsedContent.image.split(';')[0].split(':')[1] || 'image/jpeg';
+        imageInfo = {
+          name: imageFile?.originalname || 'image',
+          type: imageMimeType,
+          size: imageFile?.size || 0,
+          dataUrl: parsedContent.image
+        };
+      } else if (typeof parsedContent.image === 'object' && parsedContent.image.url) {
+        // 新格式：URL对象
+        imageInfo = {
+          name: parsedContent.image.originalName || 'image',
+          type: parsedContent.image.mimeType || 'image/jpeg',
+          size: parsedContent.image.size || 0,
+          url: parsedContent.image.url,
+          filename: parsedContent.image.filename
+        };
+      }
+    }
+    
+    // 处理音频信息：可能是URL对象或data URL字符串（向后兼容）
+    let audioInfo = null;
+    if (parsedContent.audio) {
+      if (typeof parsedContent.audio === 'string') {
+        // 向后兼容：data URL字符串
+        const audioMimeType = parsedContent.audio.split(';')[0].split(':')[1] || 'audio/wav';
+        audioInfo = {
+          name: audioFile?.originalname || 'audio',
+          type: audioMimeType,
+          size: audioFile?.size || 0,
+          dataUrl: parsedContent.audio
+        };
+      } else if (typeof parsedContent.audio === 'object') {
+        // 新格式：URL对象
+        // 如果有url字段，直接使用；否则从filename构建URL
+        let audioUrl = parsedContent.audio.url;
+        if (!audioUrl && parsedContent.audio.filename) {
+          // 从filename构建URL（相对路径）
+          audioUrl = `/api/chat-files/${parsedContent.audio.filename}`;
+        }
+        
+        audioInfo = {
+          name: parsedContent.audio.originalName || 'audio',
+          type: parsedContent.audio.mimeType || 'audio/wav',
+          size: parsedContent.audio.size || 0,
+          url: audioUrl, // 确保有URL（从url字段或filename构建）
+          filename: parsedContent.audio.filename
+        };
+      }
+    }
+    
+    const attachmentsInfo = parsedContent.attachments || [];
+    
+    // 15. 返回响应
     if (acceptStream) {
       // 流式响应：发送完成事件
       if (res.writable && !res.destroyed) {
         res.write(`data: ${JSON.stringify({ 
           type: 'done', 
-          content: ragResult.answer,
-          references: ragResult.references || []
+          content: cleanedAnswer, // 使用清理后的内容，不包含解析内容
+          references: ragResult.references || [],
+          user_message_image: imageInfo, // 包含图片信息
+          user_message_audio: audioInfo, // 包含音频信息
+          user_message_attachments: attachmentsInfo // 包含附件信息
         })}\n\n`);
         res.end();
       }
@@ -718,17 +1462,21 @@ router.post('/chat', async (req, res) => {
       res.json({
         session: {
           session_id: session.session_id,  // 返回实际使用的 session_id
-          title: session.title || actualContent.substring(0, 50),
+          title: session.title || textForClassification.substring(0, 50),
           created_at: session.created_at
         },
         user_message: {
           message_id: actualMessageId,  // 返回实际使用的 message_id
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          content: parsedContent.text, // 文本内容（只包含用户原始输入，不包含解析内容）
+          image: imageInfo, // 包含图片信息
+          audio: audioInfo, // 包含音频信息
+          attachments: attachmentsInfo // 包含附件信息
         },
         ai_message: {
           message_id: aiMessageId,
           role: ragResult.role,
-          content: ragResult.answer,
+          content: cleanedAnswer, // 使用清理后的内容，不包含解析内容
           references: ragResult.references || []
         }
       });
@@ -800,6 +1548,154 @@ router.delete('/del-chat-session/:session_id', async (req, res) => {
       success: false,
       deleted_session_id: req.params.session_id,
       error: error.message
+    });
+  }
+});
+
+// ============================================
+// 接口5.4: 单独上传和解析文件（图片、音频、附件）
+// POST /api/upload-and-parse-file
+// 支持：image, audio, attachment
+// ============================================
+router.post('/upload-and-parse-file', upload.single('file'), async (req, res) => {
+  try {
+    const file = req.file;
+    const fileType = req.body.type; // 'image', 'audio', 'attachment'
+    
+    if (!file) {
+      return res.status(400).json({
+        success: false,
+        error: '没有上传文件'
+      });
+    }
+    
+    if (!fileType || !['image', 'audio', 'attachment'].includes(fileType)) {
+      return res.status(400).json({
+        success: false,
+        error: '无效的文件类型，必须是 image、audio 或 attachment'
+      });
+    }
+    
+    logger.info('收到文件上传请求', {
+      type: fileType,
+      filename: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size
+    });
+    
+    // 生成临时消息ID用于文件命名
+    const tempMessageId = `temp_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    
+    // 修复文件名编码问题
+    if (file.originalname) {
+      try {
+        const decoded = Buffer.from(file.originalname, 'latin1').toString('utf8');
+        if (decoded !== file.originalname) {
+          file.originalname = decoded;
+        }
+      } catch (e) {
+        // 解码失败，使用原名称
+      }
+    }
+    
+    // 保存文件
+    const savedFile = await fileStorageService.saveFile(file, tempMessageId);
+    logger.info('文件已保存', {
+      filename: savedFile.filename,
+      url: savedFile.url
+    });
+    
+    let parsedContent = null;
+    let extractedText = null;
+    
+    // 根据文件类型进行解析
+    if (fileType === 'image') {
+      // 解析图片
+      try {
+        logger.info('开始解析图片内容');
+        const imageDescription = await multimodalService.understandImage(
+          file.buffer,
+          '请详细描述这张图片的内容',
+          'buffer'
+        );
+        extractedText = `[图片内容：${imageDescription}]`;
+        parsedContent = {
+          type: 'image',
+          description: imageDescription
+        };
+        logger.info('图片解析成功', { descriptionLength: imageDescription.length });
+      } catch (error) {
+        logger.error('图片解析失败', { error: error.message });
+        return res.status(500).json({
+          success: false,
+          error: `图片解析失败: ${error.message}`
+        });
+      }
+    } else if (fileType === 'audio') {
+      // 解析音频
+      try {
+        logger.info('开始解析音频内容');
+        const audioFormat = file.originalname.split('.').pop() || 'webm';
+        const audioText = await multimodalService.transcribeAudio(file.buffer, audioFormat);
+        extractedText = `[语音内容：${audioText}]`;
+        parsedContent = {
+          type: 'audio',
+          transcript: audioText
+        };
+        logger.info('音频解析成功', { textLength: audioText.length });
+      } catch (error) {
+        logger.error('音频解析失败', { error: error.message });
+        return res.status(500).json({
+          success: false,
+          error: `音频解析失败: ${error.message}`
+        });
+      }
+    } else if (fileType === 'attachment') {
+      // 解析附件文件
+      try {
+        logger.info('开始解析附件文件内容');
+        const content = await fileParserService.parseFile({
+          path: savedFile.path,
+          filename: savedFile.filename,
+          mimeType: savedFile.mimeType,
+          originalName: savedFile.originalName
+        });
+        extractedText = `文件：${savedFile.originalName}\n内容：\n${content}`;
+        parsedContent = {
+          type: 'attachment',
+          content: content
+        };
+        logger.info('附件文件解析成功', { contentLength: content.length });
+      } catch (error) {
+        logger.error('附件文件解析失败', { error: error.message });
+        return res.status(500).json({
+          success: false,
+          error: `附件文件解析失败: ${error.message}`
+        });
+      }
+    }
+    
+    // 返回结果
+    res.json({
+      success: true,
+      file: {
+        id: savedFile.filename, // 使用filename作为唯一ID
+        url: savedFile.url,
+        filename: savedFile.filename,
+        originalName: savedFile.originalName,
+        mimeType: savedFile.mimeType,
+        size: savedFile.size,
+        type: fileType
+      },
+      parsedContent: parsedContent,
+      extractedText: extractedText
+    });
+    
+  } catch (error) {
+    logger.error('文件上传和解析失败', { error: error.message, stack: error.stack });
+    res.status(500).json({
+      success: false,
+      error: error.message || '文件上传和解析失败'
     });
   }
 });
@@ -1253,5 +2149,84 @@ router.post('/llm/switch', async (req, res) => {
   }
 });
 
+// ============================================
+// 接口10: 获取聊天附件文件
+// GET /api/chat-files/:filename
+// ============================================
+router.get('/chat-files/:filename', async (req, res) => {
+  try {
+    const filename = req.params.filename;
+    
+    // 安全检查：防止路径遍历攻击
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      return res.status(400).json({
+        error: '无效的文件名'
+      });
+    }
+    
+    // 检查文件是否存在
+    const fileExists = await fileStorageService.fileExists(filename);
+    if (!fileExists) {
+      return res.status(404).json({
+        error: '文件不存在或已过期',
+        message: '该文件可能已被清理或不存在'
+      });
+    }
+    
+    // 获取文件路径
+    const filePath = fileStorageService.getFilePath(filename);
+    const fileInfo = await fileStorageService.getFileInfo(filename);
+    
+    if (!fileInfo || !fileInfo.exists) {
+      return res.status(404).json({
+        error: '文件不存在或已过期',
+        message: '该文件可能已被清理或不存在'
+      });
+    }
+    
+    // 设置响应头
+    const ext = path.extname(filename).toLowerCase();
+    const mimeTypes = {
+      '.pdf': 'application/pdf',
+      '.doc': 'application/msword',
+      '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      '.xls': 'application/vnd.ms-excel',
+      '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      '.txt': 'text/plain; charset=utf-8', // 添加UTF-8编码，修复中文乱码
+      '.md': 'text/markdown; charset=utf-8', // 添加UTF-8编码
+      '.json': 'application/json; charset=utf-8', // 添加UTF-8编码
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+      '.gif': 'image/gif',
+      // 音频文件类型
+      '.wav': 'audio/wav',
+      '.mp3': 'audio/mpeg',
+      '.ogg': 'audio/ogg',
+      '.webm': 'audio/webm',
+      '.m4a': 'audio/mp4',
+      '.aac': 'audio/aac',
+    };
+    
+    const contentType = mimeTypes[ext] || 'application/octet-stream';
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Length', fileInfo.size);
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(filename)}"`);
+    
+    // 发送文件
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+    
+  } catch (error) {
+    logger.error('获取文件失败', { error: error.message, filename: req.params.filename });
+    res.status(500).json({
+      error: '获取文件失败',
+      message: error.message
+    });
+  }
+});
+
+// ============================================
+// 辅助函数：格式化提取的信息（图片/音频）
 module.exports = router;
 

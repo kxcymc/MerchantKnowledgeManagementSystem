@@ -108,29 +108,45 @@ async function getBusinessId(business, scene) {
     throw new Error('business 不能为空');
   }
 
-  // 构造查询条件
-  // 如果 scene 存在，则查询 business + scene
-  // 如果 scene 不存在（null/undefined/空字符串），则查询 business + (scene IS NULL OR scene = '')
-  // 注意：数据库中 scene 字段可能为 NULL
-  
-  let sql;
-  let params;
+  const trimmedBusiness = business.trim();
+  const trimmedScene = scene ? scene.trim() : '';
 
-  if (scene) {
-    sql = `SELECT business_id FROM BusinessScene WHERE business = ? AND scene = ? LIMIT 1`;
-    params = [business, scene];
+  // 先按业务+场景精确匹配
+  if (trimmedScene) {
+    const [rows] = await pool.execute(
+      `SELECT business_id FROM BusinessScene WHERE business = ? AND scene = ? LIMIT 1`,
+      [trimmedBusiness, trimmedScene]
+    );
+
+    if (rows.length > 0) {
+      return rows[0].business_id;
+    }
+
+    // 精确匹配不到时，回退到仅按业务匹配（scene 为空），避免因为前端携带旧场景值导致报错
+    const [fallbackRows] = await pool.execute(
+      `SELECT business_id FROM BusinessScene WHERE business = ? AND (scene IS NULL OR scene = '') LIMIT 1`,
+      [trimmedBusiness]
+    );
+
+    if (fallbackRows.length > 0) {
+      logger.warn('业务场景未匹配到，已回退到业务级匹配', {
+        business: trimmedBusiness,
+        scene: trimmedScene
+      });
+      return fallbackRows[0].business_id;
+    }
   } else {
-    sql = `SELECT business_id FROM BusinessScene WHERE business = ? AND (scene IS NULL OR scene = '') LIMIT 1`;
-    params = [business];
+    // scene 为空的正常查询
+    const [rows] = await pool.execute(
+      `SELECT business_id FROM BusinessScene WHERE business = ? AND (scene IS NULL OR scene = '') LIMIT 1`,
+      [trimmedBusiness]
+    );
+    if (rows.length > 0) {
+      return rows[0].business_id;
+    }
   }
 
-  const [rows] = await pool.execute(sql, params);
-
-  if (rows.length > 0) {
-    return rows[0].business_id;
-  }
-
-  throw new Error(`未找到对应的业务场景: ${business} - ${scene || '无'}`);
+  throw new Error(`未找到对应的业务场景: ${trimmedBusiness} - ${trimmedScene || '无'}`);
 }
 
 // 插入知识库记录

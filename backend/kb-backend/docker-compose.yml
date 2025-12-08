@@ -6,8 +6,12 @@ services:
       - "8000:8000"
     volumes:
       # 持久化数据到本地目录，即使容器删除数据也不会丢失
-      # 使用相对路径确保跨平台兼容性
+      # 默认使用相对路径，跨平台更兼容；如需绝对路径请按需替换
       - ./data/chroma_server:/data
+      # Windows 绝对路径示例（按需启用）：
+      # - G:/bytedance_camp/MerchantKnowledgeManagementSystem/backend/kb-backend/data/chroma_server:/data
+      # macOS 绝对路径示例（按需启用）：
+      # - /Users/xxx/MerchantKnowledgeManagementSystem/backend/kb-backend/data/chroma_server:/data
     environment:
       # 启用持久化存储
       - IS_PERSISTENT=TRUE

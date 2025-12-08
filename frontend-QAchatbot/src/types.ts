@@ -42,6 +42,24 @@ export interface MessageReference {
   }>;
 }
 
+export interface MessageImage {
+  name: string;
+  type: string;
+  size: number;
+  dataUrl?: string; // base64或blob URL（可选，用于临时预览）
+  url?: string; // 完整的URL（用于持久化显示）
+  filename?: string; // 文件名
+}
+
+export interface MessageAudio {
+  name: string;
+  type: string;
+  size: number;
+  dataUrl?: string; // base64或blob URL（可选，用于临时预览）
+  url?: string; // 完整的URL（用于持久化播放）
+  filename?: string; // 文件名
+}
+
 export interface Message {
   message_id: string;
   session_id: string;
@@ -51,6 +69,9 @@ export interface Message {
   timestamp: number;
   isStreaming?: boolean;
   files?: File[];
+  image?: MessageImage; // 图片信息
+  audio?: MessageAudio; // 音频信息（可用于播放）
+  hasAudio?: boolean; // 向后兼容：是否有语音输入
   references?: MessageReference[];
 }
 

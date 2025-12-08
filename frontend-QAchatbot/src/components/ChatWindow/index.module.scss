@@ -110,6 +110,48 @@
           gap: 4px;
           min-width: 0;
 
+          .messageImageContainer {
+            margin-bottom: 8px;
+            border-radius: 12px;
+            overflow: hidden;
+            max-width: 400px;
+            border: 1px solid #e5e7eb;
+            background-color: #f9fafb;
+          }
+
+          .messageImage {
+            display: block;
+            max-width: 100%;
+            max-height: 400px;
+            object-fit: contain;
+            width: auto;
+            height: auto;
+          }
+
+          .messageAudioContainer {
+            margin-bottom: 8px;
+            max-width: 400px;
+          }
+
+          .messageAudioPlayer {
+            width: 100%;
+            height: 32px;
+            outline: none;
+          }
+
+          .messageAudioIndicator {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            padding: 6px 12px;
+            background-color: #e8f3ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #2563eb;
+            font-weight: 500;
+          }
+
           .messageAttachmentsContainer {
             display: flex;
             flex-direction: column;
@@ -121,11 +163,32 @@
             padding-right: 6px;
 
             .attachmentRow {
+              display: flex;
+              align-items: center;
+              gap: 8px;
               min-width: 0;
               padding: 8px 12px;
               background-color: #f9fafb;
               border: 1px solid #e5e7eb;
               border-radius: 8px;
+              transition: background-color 0.2s;
+              
+              &:hover {
+                background-color: #f3f4f6;
+              }
+              
+              .attachmentIcon {
+                font-size: 16px;
+                flex-shrink: 0;
+              }
+              
+              .attachmentName {
+                flex: 1;
+                min-width: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+              }
               font-size: 13px;
               color: #374151;
               display: flex;

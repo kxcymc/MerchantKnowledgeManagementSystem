@@ -2,8 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Message, MessageRole, MessageReference } from '@/types';
 import logo from '@/assets/logo.png';
 import styles from './index.module.scss';
-import { ChatInput } from '@/components/ChatInput';
-import { IconInfoCircle } from '@arco-design/web-react/icon';
+import { ChatInput, ParsedFileInfo } from '@/components/ChatInput';
+import { IconInfoCircle, IconVoice } from '@arco-design/web-react/icon';
 import { Button, Spin } from '@arco-design/web-react';
 
 /**
@@ -249,7 +249,25 @@ const renderContentWithCitations = (
   };
 
   // 移除引用标记后处理内容
-  const cleanedContent = removeCitations(content);
+  let cleanedContent = removeCitations(content);
+  
+  // 移除图片、音频、附件解析后的内容（如 [图片内容：...]、[语音内容：...]、[附件文件内容：...]）
+  // 使用非贪婪匹配，处理单行和多行内容，包括中英文冒号
+  cleanedContent = cleanedContent.replace(/\[图片内容[：:][\s\S]*?\]/g, '');
+  cleanedContent = cleanedContent.replace(/\[语音内容[：:][\s\S]*?\]/g, '');
+  cleanedContent = cleanedContent.replace(/\[附件文件内容[：:][\s\S]*?\]/g, '');
+  
+  // 移除"总结文件:文件名 内容:"这样的格式（附件解析后的内容）
+  cleanedContent = cleanedContent.replace(/总结文件[：:][^\n]*\s*内容[：:][\s\S]*?(?=\n\n|\n[A-Z]|$)/g, '');
+  cleanedContent = cleanedContent.replace(/文件[：:][^\n]*\n内容[：:][\s\S]*?(?=\n\n|\n文件[：:]|$)/g, '');
+  // 移除"文件：文件名\n内容：..."格式（更通用的匹配，匹配到段落结束或文档结束）
+  cleanedContent = cleanedContent.replace(/文件[：:][^\n]+\n内容[：:][\s\S]*?(?=\n\n|$)/g, '');
+  // 移除以"文件："开头，后面跟着文件名和"内容："的大段文本
+  cleanedContent = cleanedContent.replace(/文件[：:][^\n]+\s*内容[：:][\s\S]*?(?=\n\n|$)/g, '');
+  
+  // 清理多余的空白行
+  cleanedContent = cleanedContent.replace(/\n\s*\n\s*\n/g, '\n\n');
+  cleanedContent = cleanedContent.trim();
   
   // 格式化内容：处理换行、列表等，返回格式化后的文本数组
   // 返回格式：普通文本为字符串，来源标注为 { type: 'source', text: '文档名', paragraphIndex: number }
@@ -444,7 +462,7 @@ const renderContentWithCitations = (
 
 interface ChatWindowProps {
   messages: Message[];
-  onSendMessage: (content: string, files?: File[]) => void;
+  onSendMessage: (content: string, parsedFiles?: ParsedFileInfo[]) => void;
   isHomeState: boolean;
   hasMoreMessages?: boolean;
   onLoadMore?: () => void;
@@ -479,21 +497,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     }
   }, [messages, isHomeState]);
 
-  const handleSend = (files?: File[]) => {
-    if (inputValue.trim() || (files && files.length > 0)) {
-      onSendMessage(inputValue.trim(), files);
+  const handleSend = (parsedFiles?: ParsedFileInfo[]) => {
+    if (inputValue.trim() || (parsedFiles && parsedFiles.length > 0)) {
+      onSendMessage(inputValue.trim(), parsedFiles);
       setInputValue('');
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent, files?: File[]) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-
-      if (inputValue.trim() || (files && files.length > 0)) {
-        onSendMessage(inputValue.trim(), files);
-        setInputValue('');
-      }
     }
   };
 
@@ -541,7 +548,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           <ChatInput
             inputValue={inputValue}
             setInputValue={setInputValue}
-            handleKeyDown={handleKeyDown}
             handleSend={handleSend}
           />
         </div>
@@ -580,7 +586,24 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             <Spin />
           </div>
         )}
-        {messages.map((msg) => (
+        {messages.map((msg) => {
+          // 调试日志：检查每条消息
+          if (msg.role === MessageRole.User) {
+            console.log('渲染用户消息:', {
+              message_id: msg.message_id,
+              hasContent: !!msg.content,
+              contentLength: msg.content?.length || 0,
+              hasAudio: !!msg.audio || !!msg.hasAudio,
+              audio: msg.audio,
+              audioDataUrl: msg.audio?.dataUrl,
+              audioUrl: msg.audio?.url,
+              hasImage: !!msg.image,
+              hasFiles: !!(msg.files && msg.files.length > 0),
+              willShowAudio: !!(msg.audio || msg.hasAudio)
+            });
+          }
+          
+          return (
           <div
             key={msg.message_id}
             className={`${styles.messageRow} ${
@@ -599,33 +622,219 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               )}
 
               <div className={styles.messageBubbleWrapper}>
-                {msg.files && msg.files.length > 0 && (
-                  <div className={styles.messageAttachmentsContainer}>
-                    {msg.files.map((file, idx) => (
-                      <div key={idx} className={styles.attachmentRow} title={file.name}>
-                        <span className={styles.attachmentName}>{file.name}</span>
-                      </div>
-                    ))}
+                {/* 显示图片 */}
+                {msg.image && (
+                  <div className={styles.messageImageContainer}>
+                    <img 
+                      src={msg.image.url || msg.image.dataUrl} 
+                      alt={msg.image.name} 
+                      className={styles.messageImage}
+                      onClick={() => {
+                        // 点击图片可以查看大图
+                        if (msg.image?.url || msg.image?.dataUrl) {
+                          window.open(msg.image.url || msg.image.dataUrl, '_blank');
+                        }
+                      }}
+                      style={{ cursor: 'pointer' }}
+                    />
                   </div>
                 )}
-                <div
-                  className={`${styles.messageBubble} ${
-                    msg.role === MessageRole.User
-                      ? styles.messageBubbleUser
-                      : styles.messageBubbleAssistant
-                  }`}
-                >
-                  {msg.role === MessageRole.Assistant
-                    ? (() => {
-                        if (!msg.content) {
-                            return <span style={{ color: '#86909c' }}>正在思考回答......</span>;
+                {/* 显示音频播放器 - 确保只要有音频信息就显示 */}
+                {(msg.audio || msg.hasAudio) && (
+                  <div className={styles.messageAudioContainer}>
+                    {(() => {
+                      // 调试：检查音频信息
+                      console.log('渲染音频播放器:', {
+                        hasAudio: !!msg.audio,
+                        hasHasAudio: !!msg.hasAudio,
+                        audio: msg.audio,
+                        dataUrl: msg.audio?.dataUrl,
+                        url: msg.audio?.url,
+                        filename: msg.audio?.filename,
+                        hasDataUrl: !!msg.audio?.dataUrl,
+                        hasUrl: !!msg.audio?.url,
+                        condition1: !!msg.audio,
+                        condition2: !!(msg.audio?.dataUrl || msg.audio?.url),
+                        willShowPlayer: !!(msg.audio && (msg.audio.dataUrl || msg.audio.url))
+                      });
+                      
+                      // 如果有audio对象且有URL（dataUrl或url），显示播放器
+                      const hasAudioUrl = msg.audio && (msg.audio.dataUrl || msg.audio.url);
+                      if (hasAudioUrl) {
+                        console.log('✅ 条件满足，准备渲染音频播放器');
+                        const audioSrc = msg.audio.dataUrl || msg.audio.url;
+                        console.log('准备渲染音频播放器，src:', audioSrc, '完整audio对象:', msg.audio);
+                        return (
+                          <div style={{ 
+                            display: 'block',
+                            width: '100%',
+                            minWidth: '200px',
+                            marginBottom: '8px'
+                          }}>
+                            <audio 
+                              controls 
+                              src={audioSrc}
+                              className={styles.messageAudioPlayer}
+                              preload="metadata"
+                              style={{ 
+                                display: 'block',
+                                width: '100%',
+                                minWidth: '200px',
+                                height: '32px',
+                                outline: 'none'
+                              }}
+                              onError={(e) => {
+                                console.error('音频加载失败:', {
+                                  error: e,
+                                  dataUrl: msg.audio?.dataUrl,
+                                  url: msg.audio?.url,
+                                  filename: msg.audio?.filename,
+                                  currentSrc: e.currentTarget.src,
+                                  audioElement: e.currentTarget
+                                });
+                                // 如果dataUrl加载失败，尝试使用url
+                                if (msg.audio?.dataUrl && msg.audio?.url && e.currentTarget.src === msg.audio.dataUrl) {
+                                  console.log('尝试切换到后端URL:', msg.audio.url);
+                                  e.currentTarget.src = msg.audio.url;
+                                }
+                              }}
+                              onLoadStart={() => {
+                                console.log('音频开始加载:', {
+                                  src: msg.audio?.dataUrl || msg.audio?.url,
+                                  hasDataUrl: !!msg.audio?.dataUrl,
+                                  hasUrl: !!msg.audio?.url
+                                });
+                              }}
+                              onCanPlay={() => {
+                                console.log('✅ 音频可以播放了');
+                              }}
+                            >
+                              您的浏览器不支持音频播放
+                            </audio>
+                          </div>
+                        );
+                      }
+                      
+                      // 如果有audio对象但没有URL，显示音频图标和提示
+                      if (msg.audio) {
+                        console.log('⚠️ audio对象存在但没有URL，显示图标。audio对象:', msg.audio);
+                        return (
+                          <div className={styles.messageAudioIndicator}>
+                            <IconVoice style={{ marginRight: '4px' }} />
+                            <span>{msg.audio.name || '语音输入'}</span>
+                            {msg.audio.filename && (
+                              <span style={{ marginLeft: '8px', color: '#86909c', fontSize: '12px' }}>
+                                (文件: {msg.audio.filename})
+                              </span>
+                            )}
+                          </div>
+                        );
+                      }
+                      
+                      // 如果有hasAudio标志但没有audio对象，显示音频图标和提示
+                      console.log('⚠️ 只有hasAudio标志，没有audio对象，显示图标');
+                      return (
+                        <div className={styles.messageAudioIndicator}>
+                          <IconVoice style={{ marginRight: '4px' }} />
+                          <span>语音输入</span>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+                {/* 显示附件 */}
+                {msg.files && msg.files.length > 0 && (
+                  <div className={styles.messageAttachmentsContainer}>
+                    {msg.files.map((file, idx) => {
+                      const handleAttachmentClick = async () => {
+                        if (file.url) {
+                          try {
+                            // 尝试打开文件预览
+                            const response = await fetch(file.url);
+                            if (response.ok) {
+                              // 如果文件存在，在新窗口打开
+                              window.open(file.url, '_blank');
+                            } else {
+                              // 文件不存在或已过期
+                              alert('文件不存在或已过期');
+                            }
+                          } catch (error) {
+                            // 文件访问失败
+                            alert('文件不存在或已过期');
+                          }
                         }
-                        const refs = msg.references || [];
-                        console.log('渲染消息内容，引用数量:', refs.length, '引用详情:', refs);
-                        return renderContentWithCitations(msg.content, refs, handleReferenceClick);
-                      })()
-                    : msg.content}
-                </div>
+                      };
+                      
+                      // 根据文件类型显示图标
+                      const getFileIcon = (mimeType?: string, name?: string) => {
+                        const ext = name?.split('.').pop()?.toLowerCase() || '';
+                        if (mimeType?.includes('pdf') || ext === 'pdf') return '📄';
+                        if (mimeType?.includes('word') || ext === 'doc' || ext === 'docx') return '📝';
+                        if (mimeType?.includes('excel') || ext === 'xls' || ext === 'xlsx') return '📊';
+                        if (mimeType?.includes('text') || ext === 'txt' || ext === 'md') return '📃';
+                        return '📎';
+                      };
+                      
+                      return (
+                        <div 
+                          key={idx} 
+                          className={styles.attachmentRow} 
+                          title={file.name}
+                          onClick={handleAttachmentClick}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <span className={styles.attachmentIcon}>{getFileIcon(file.mimeType, file.name)}</span>
+                          <span className={styles.attachmentName}>{file.name}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {/* 只显示文本内容（不显示解析后的文件内容） */}
+                {/* 对于用户消息：如果有文本内容才显示文本气泡，如果没有文本但有文件/图片/音频，则不显示文本气泡 */}
+                {/* 对于AI消息：显示完整的回复内容 */}
+                {/* 用户消息：如果有文本内容，显示文本气泡 */}
+                {msg.role === MessageRole.User && msg.content && msg.content.trim() ? (
+                  <div
+                    className={`${styles.messageBubble} ${styles.messageBubbleUser}`}
+                  >
+                    {(() => {
+                      // 对于用户消息，也需要移除解析后的文件内容
+                      if (!msg.content) return '';
+                      let userContent = msg.content;
+                          // 移除图片、音频、附件解析后的内容
+                          userContent = userContent.replace(/\[图片内容[：:][\s\S]*?\]/g, '');
+                          userContent = userContent.replace(/\[语音内容[：:][\s\S]*?\]/g, '');
+                          userContent = userContent.replace(/\[附件文件内容[：:][\s\S]*?\]/g, '');
+                          // 移除"总结文件:文件名 内容:"这样的格式
+                          userContent = userContent.replace(/总结文件[：:][^\n]*\s*内容[：:][\s\S]*?(?=\n\n|\n[A-Z]|$)/g, '');
+                          userContent = userContent.replace(/文件[：:][^\n]*\n内容[：:][\s\S]*?(?=\n\n|\n文件[：:]|$)/g, '');
+                          // 移除"文件：文件名\n内容：..."格式（更通用的匹配）
+                          userContent = userContent.replace(/文件[：:][^\n]+\n内容[：:][\s\S]*?(?=\n\n|$)/g, '');
+                          // 移除以"文件："开头，后面跟着文件名和"内容："的大段文本
+                          userContent = userContent.replace(/文件[：:][^\n]+\s*内容[：:][\s\S]*?(?=\n\n|$)/g, '');
+                          userContent = userContent.replace(/\n\s*\n\s*\n/g, '\n\n');
+                          userContent = userContent.trim();
+                          return userContent;
+                        })()}
+                  </div>
+                ) : null}
+                
+                {/* AI消息：显示完整的回复内容 */}
+                {msg.role === MessageRole.Assistant ? (
+                  <div
+                    className={`${styles.messageBubble} ${styles.messageBubbleAssistant}`}
+                  >
+                    {(() => {
+                      if (!msg.content) {
+                        return <span style={{ color: '#86909c' }}>正在思考回答......</span>;
+                      }
+                      const refs = msg.references || [];
+                      console.log('渲染消息内容，引用数量:', refs.length, '引用详情:', refs);
+                      return renderContentWithCitations(msg.content, refs, handleReferenceClick);
+                    })()}
+                  </div>
+                ) : null}
                 {/* 显示引用信息 */}
                 {msg.role === MessageRole.Assistant && msg.references && msg.references.length > 0 && (
                   <div className={styles.referenceContainer}>
@@ -674,7 +883,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               </div>
             </div>
           </div>
-        ))}
+          );
+        })}
         <div ref={messagesEndRef} />
       </div>
 
@@ -683,7 +893,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           minimized
           inputValue={inputValue}
           setInputValue={setInputValue}
-          handleKeyDown={handleKeyDown}
           handleSend={handleSend}
         />
       </div>
