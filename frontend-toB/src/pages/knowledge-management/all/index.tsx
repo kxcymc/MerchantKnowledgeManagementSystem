@@ -120,11 +120,31 @@ export default function KnowledgeAll() {
 
     const handleBatchDelete = () => {
         if (selectedRowKeys.length === 0) {
-            Message.warning('请先选择要删除的文件');
+            Modal.warning({
+                title: '提示',
+                content: (
+                    <div style={{ textAlign: 'center' }}>
+                        请先选择要删除的文件
+                    </div>
+                ),
+            });
             return;
         }
 
         const del = async () => {
+            const modal = Modal.info({
+                title: '处理中',
+                content: (
+                    <div style={{ textAlign: 'center' }}>
+                        正在删除文件...
+                    </div>
+                ),
+                footer: null,
+                closable: false,
+                maskClosable: false,
+                escToExit: false,
+            });
+
             try {
                 const deletePromises = selectedRowKeys.map(id => 
                     fetch(`/api/knowledge/${id}`, { method: 'DELETE' })
@@ -132,20 +152,43 @@ export default function KnowledgeAll() {
                 const results = await Promise.all(deletePromises);
                 const allSuccess = results.every(res => res.ok);
                 
+                modal.close();
+
                 if (allSuccess) {
-                    Message.success(`成功删除 ${selectedRowKeys.length} 个文件`);
+                    Modal.success({
+                        title: '成功',
+                        content: (
+                            <div style={{ textAlign: 'center' }}>
+                                {`成功删除 ${selectedRowKeys.length} 个文件`}
+                            </div>
+                        ),
+                    });
                     setSelectedRowKeys([]);
                     // 刷新列表
                     fetchList();
                 } else {
-                    Message.error('部分文件删除失败');
+                    Modal.error({
+                        title: '失败',
+                        content: (
+                            <div style={{ textAlign: 'center' }}>
+                                部分文件删除失败
+                            </div>
+                        ),
+                    });
                     // 即使部分失败也刷新列表
                     fetchList();
                 }
             } catch (err) {
+                modal.close();
                 console.error(err);
-                Message.error('删除出错');
-                console.error(err);
+                Modal.error({
+                    title: '错误',
+                    content: (
+                        <div style={{ textAlign: 'center' }}>
+                            删除出错
+                        </div>
+                    ),
+                });
             }
         };
 

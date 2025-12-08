@@ -1,8 +1,6 @@
 import React, { useMemo } from 'react';
 import { Table, Tag, Typography } from '@arco-design/web-react';
 import { Empty } from '@arco-design/web-react';
-import useLocale from '@/utils/useLocale';
-import locale from '../locale';
 
 const { Text } = Typography;
 
@@ -11,12 +9,10 @@ interface ZeroHitQuestionsTableProps {
 }
 
 function ZeroHitQuestionsTable({ data }: ZeroHitQuestionsTableProps) {
-  const t = useLocale(locale);
-
   const columns = useMemo(
     () => [
       {
-        title: t['knowledgeInsight.zeroHit.table.rank'],
+        title: '排名',
         dataIndex: 'rank',
         width: 80,
         render: (_: any, __: any, index: number) => {
@@ -29,7 +25,7 @@ function ZeroHitQuestionsTable({ data }: ZeroHitQuestionsTableProps) {
         },
       },
       {
-        title: t['knowledgeInsight.zeroHit.table.question'],
+        title: '问题内容',
         dataIndex: 'question_text',
         ellipsis: true,
         render: (text: string) => (
@@ -39,7 +35,7 @@ function ZeroHitQuestionsTable({ data }: ZeroHitQuestionsTableProps) {
         ),
       },
       {
-        title: t['knowledgeInsight.zeroHit.table.askedCount'],
+        title: '提问次数',
         dataIndex: 'asked_count',
         width: 120,
         sorter: (a: any, b: any) => (a.asked_count || 0) - (b.asked_count || 0),
@@ -50,14 +46,14 @@ function ZeroHitQuestionsTable({ data }: ZeroHitQuestionsTableProps) {
         ),
       },
       {
-        title: t['knowledgeInsight.zeroHit.table.firstAsked'],
+        title: '首次提问',
         dataIndex: 'first_asked_at',
         width: 180,
         render: (date: string) =>
           date ? new Date(date).toLocaleString('zh-CN', { dateStyle: 'short', timeStyle: 'short' }) : '-',
       },
       {
-        title: t['knowledgeInsight.zeroHit.table.lastAsked'],
+        title: '最近提问',
         dataIndex: 'last_asked_at',
         width: 180,
         sorter: (a: any, b: any) => {
@@ -69,7 +65,7 @@ function ZeroHitQuestionsTable({ data }: ZeroHitQuestionsTableProps) {
           date ? new Date(date).toLocaleString('zh-CN', { dateStyle: 'short', timeStyle: 'short' }) : '-',
       },
     ],
-    [t]
+    []
   );
 
   if (!data || data.length === 0) {
@@ -99,4 +95,3 @@ function ZeroHitQuestionsTable({ data }: ZeroHitQuestionsTableProps) {
 }
 
 export default ZeroHitQuestionsTable;
-

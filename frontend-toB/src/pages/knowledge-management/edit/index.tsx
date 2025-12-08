@@ -7,6 +7,7 @@ import {
     Button,
     Select,
     Message,
+    Modal,
     Radio,
     Upload,
 } from '@arco-design/web-react';
@@ -59,15 +60,35 @@ export default function KnowledgeEdit() {
             const values = await form.validate();
 
             if (!knowledgeIdParam) {
-                Message.error('知识ID无效');
+                Modal.warning({
+                    title: '提示',
+                    content: (
+                        <div style={{ textAlign: 'center' }}>
+                            知识ID无效
+                        </div>
+                    ),
+                });
                 return;
             }
 
             const currentType = mode === '富文本' ? 'json' : 'pdf';
             const isTypeConversion = originalType && originalType !== currentType;
 
-            if (isTypeConversion) {
-                try {
+            const loadingModal = Modal.info({
+                title: '处理中',
+                content: (
+                    <div style={{ textAlign: 'center' }}>
+                        正在提交数据...
+                    </div>
+                ),
+                footer: null,
+                closable: false,
+                maskClosable: false,
+                escToExit: false,
+            });
+
+            try {
+                if (isTypeConversion) {
                     const deleteResponse = await fetch(`/api/knowledge/${knowledgeIdParam}`, {
                         method: 'DELETE',
                     });
@@ -99,10 +120,26 @@ export default function KnowledgeEdit() {
                             throw new Error(errorData.message || '创建新记录失败');
                         }
 
-                        Message.success('类型转换成功：已删除旧记录并创建新记录');
+                        loadingModal.close();
+                        Modal.success({
+                            title: '成功',
+                            content: (
+                                <div style={{ textAlign: 'center' }}>
+                                    类型转换成功：已删除旧记录并创建新记录
+                                </div>
+                            ),
+                        });
                     } else if (mode === 'pdf') {
                         if (!uploadedFile || !uploadedFile.originFile) {
-                            Message.error('类型转换为PDF时，必须上传PDF文件');
+                            loadingModal.close();
+                            Modal.warning({
+                                title: '提示',
+                                content: (
+                                    <div style={{ textAlign: 'center' }}>
+                                        类型转换为PDF时，必须上传PDF文件
+                                    </div>
+                                ),
+                            });
                             return;
                         }
 
@@ -122,74 +159,113 @@ export default function KnowledgeEdit() {
                             throw new Error(errorData.message || '创建新记录失败');
                         }
 
-                        Message.success('类型转换成功：已删除旧记录并创建新记录');
+                        loadingModal.close();
+                        Modal.success({
+                            title: '成功',
+                            content: (
+                                <div style={{ textAlign: 'center' }}>
+                                    类型转换成功：已删除旧记录并创建新记录
+                                </div>
+                            ),
+                        });
                     }
 
-                    history.push('/knowledge-management/all');
-                } catch (err) {
-                    console.error('类型转换失败:', err);
-                    Message.error(err instanceof Error ? err.message : '类型转换失败');
-                }
-            } else {
-                if (mode === '富文本') {
-                    const payload = {
-                        knowledge_id: knowledgeIdParam,
-                        business: values.business,
-                        scene: values.scene || '',
-                        title: values.title || '',
-                        content: JSON.stringify(editorContent)
-                    };
-
-                    const response = await fetch('/api/update', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(payload),
-                    });
-
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.message || '更新失败');
-                    }
-
-                    const result = await response.json();
-                    Message.success(result.message || '知识更新成功');
-                    history.push('/knowledge-management/all');
-                } else if (mode === 'pdf') {
-                    const formData = new FormData();
-                    
-                    if (uploadedFile && uploadedFile.originFile) {
-                        formData.append('document', uploadedFile.originFile as File);
-                    }
-                    
-                    formData.append('knowledge_id', knowledgeIdParam);
-                    formData.append('business', values.business);
-                    formData.append('scene', values.scene || '');
-                    if (values.title) {
-                        formData.append('title', values.title);
-                    }
-
-                    const response = await fetch('/api/update', {
-                        method: 'POST',
-                        body: formData,
-                    });
-
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.message || '更新失败');
-                    }
-
-                    const result = await response.json();
-                    Message.success(result.message || '知识更新成功');
                     history.push('/knowledge-management/all');
                 } else {
-                    Message.error('请选择编辑方式');
+                    if (mode === '富文本') {
+                        const payload = {
+                            knowledge_id: knowledgeIdParam,
+                            business: values.business,
+                            scene: values.scene || '',
+                            title: values.title || '',
+                            content: JSON.stringify(editorContent)
+                        };
+
+                        const response = await fetch('/api/update', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(payload),
+                        });
+
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.message || '更新失败');
+                        }
+
+                        const result = await response.json();
+                        loadingModal.close();
+                        Modal.success({
+                            title: '成功',
+                            content: (
+                                <div style={{ textAlign: 'center' }}>
+                                    {result.message || '知识更新成功'}
+                                </div>
+                            ),
+                        });
+                        history.push('/knowledge-management/all');
+                    } else if (mode === 'pdf') {
+                        const formData = new FormData();
+                        
+                        if (uploadedFile && uploadedFile.originFile) {
+                            formData.append('document', uploadedFile.originFile as File);
+                        }
+                        
+                        formData.append('knowledge_id', knowledgeIdParam);
+                        formData.append('business', values.business);
+                        formData.append('scene', values.scene || '');
+                        if (values.title) {
+                            formData.append('title', values.title);
+                        }
+
+                        const response = await fetch('/api/update', {
+                            method: 'POST',
+                            body: formData,
+                        });
+
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.message || '更新失败');
+                        }
+
+                        const result = await response.json();
+                        loadingModal.close();
+                        Modal.success({
+                            title: '成功',
+                            content: (
+                                <div style={{ textAlign: 'center' }}>
+                                    {result.message || '知识更新成功'}
+                                </div>
+                            ),
+                        });
+                        history.push('/knowledge-management/all');
+                    } else {
+                        loadingModal.close();
+                        Modal.warning({
+                            title: '提示',
+                            content: (
+                                <div style={{ textAlign: 'center' }}>
+                                    请选择编辑方式
+                                </div>
+                            ),
+                        });
+                    }
                 }
+            } catch (err) {
+                loadingModal.close();
+                throw err;
             }
         } catch (err) {
             console.error('更新失败:', err);
-            Message.error(err instanceof Error ? err.message : '更新失败,请检查表单必填项');
+            Modal.error({
+                title: '错误',
+                content: (
+                    <div style={{ textAlign: 'center' }}>
+                        {err instanceof Error ? err.message : '更新失败,请检查表单必填项'}
+                    </div>
+                ),
+            });
         }
     };
 

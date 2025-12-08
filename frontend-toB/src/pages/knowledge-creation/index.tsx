@@ -78,70 +78,132 @@ export default function KnowledgeCreation() {
         });
     };
 
-    interface Payload {
-        business: string;
-        scene: string;
-        file_url?: string;
-        title?: string;
-        mode: 'pdf' | '富文本' | '';
-        content?: string;
-        files?: { name: string; size: number; link?: string }[];
-    }
-
     const handleSubmit = async () => {
         try {
             const values = await form.validate();
             if (!values.business) {
-                Message.error('请选择所属业务');
+                Modal.warning({
+                    title: '提示',
+                    content: (
+                        <div style={{ textAlign: 'center' }}>
+                            请选择所属业务
+                        </div>
+                    ),
+                });
                 return;
             }
             if (isShowSceneSelectCol && !values.scene) {
-                Message.error('请选择所属场景');
+                Modal.warning({
+                    title: '提示',
+                    content: (
+                        <div style={{ textAlign: 'center' }}>
+                            请选择所属场景
+                        </div>
+                    ),
+                });
                 return;
             }
-            if (mode === '富文本') {
-                await addKnowledgeJson({
-                    title: values.title,
-                    content: JSON.stringify(editorContent),
-                    business: values.business,
-                    scene: values.scene,
+
+            const loadingModal = Modal.info({
+                title: '处理中',
+                content: (
+                    <div style={{ textAlign: 'center' }}>
+                        正在创建知识...
+                    </div>
+                ),
+                footer: null,
+                closable: false,
+                maskClosable: false,
+                escToExit: false,
+            });
+
+            try {
+                if (mode === '富文本') {
+                    await addKnowledgeJson({
+                        title: values.title,
+                        content: JSON.stringify(editorContent),
+                        business: values.business,
+                        scene: values.scene,
+                    });
+                } else if (mode === 'pdf') {
+                    if (fileList.length === 0) {
+                        loadingModal.close();
+                        Modal.warning({
+                            title: '提示',
+                            content: (
+                                <div style={{ textAlign: 'center' }}>
+                                    请至少上传一个文件
+                                </div>
+                            ),
+                        });
+                        return;
+                    }
+
+                    if (fileList.length === 1) {
+                        const file = fileList[0].originFile;
+                        if (!file) {
+                            loadingModal.close();
+                            Modal.warning({
+                                title: '提示',
+                                content: (
+                                    <div style={{ textAlign: 'center' }}>
+                                        文件对象丢失
+                                    </div>
+                                ),
+                            });
+                            return;
+                        }
+                        await addKnowledgeFile({
+                            document: file,
+                            business: values.business,
+                            scene: values.scene,
+                        });
+                    } else {
+                        const files = fileList.map(f => f.originFile).filter(Boolean) as File[];
+                        if (files.length !== fileList.length) {
+                            loadingModal.close();
+                            Modal.warning({
+                                title: '提示',
+                                content: (
+                                    <div style={{ textAlign: 'center' }}>
+                                        部分文件对象丢失
+                                    </div>
+                                ),
+                            });
+                            return;
+                        }
+                        await batchAddKnowledge({
+                            documents: files,
+                            business: values.business,
+                            scene: values.scene,
+                        });
+                    }
+                }
+
+                loadingModal.close();
+                Modal.success({
+                    title: '成功',
+                    content: (
+                        <div style={{ textAlign: 'center' }}>
+                            知识创建成功
+                        </div>
+                    ),
                 });
-            } else if (mode === 'pdf') {
-                if (fileList.length === 0) {
-                    Message.error('请至少上传一个文件');
-                    return;
-                }
-
-                if (fileList.length === 1) {
-                    const file = fileList[0].originFile;
-                    if (!file) {
-                        Message.error('文件对象丢失');
-                        return;
-                    }
-                    await addKnowledgeFile({
-                        document: file,
-                        business: values.business,
-                        scene: values.scene,
-                    });
-                } else {
-                    const files = fileList.map(f => f.originFile).filter(Boolean) as File[];
-                    if (files.length !== fileList.length) {
-                        Message.error('部分文件对象丢失');
-                        return;
-                    }
-                    await batchAddKnowledge({
-                        documents: files,
-                        business: values.business,
-                        scene: values.scene,
-                    });
-                }
+                history.push('/knowledge-management/all');
+            } catch (err) {
+                loadingModal.close();
+                throw err;
             }
-
-            Message.success('知识创建成功');
-            history.push('/knowledge-management/all');
         } catch (err) {
             console.error(err);
-            Message.error('创建失败，请检查表单或网络');
+            Modal.error({
+                title: '错误',
+                content: (
+                    <div style={{ textAlign: 'center' }}>
+                        创建失败，请检查表单或网络
+                    </div>
+                ),
+            });
         }
     };
 

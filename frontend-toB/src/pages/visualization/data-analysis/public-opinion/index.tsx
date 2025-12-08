@@ -1,41 +1,27 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import PublicOpinionCard, { PublicOpinionCardProps } from './card';
 import axios from 'axios';
 import { Grid } from '@arco-design/web-react';
-import useLocale from '@/utils/useLocale';
-import locale from '../locale';
 
 const { Row, Col } = Grid;
 
+const TITLE_MAP = {
+  visitor: '总会话数',
+  content: '总消息数',
+  comment: '知识库数',
+  share: '引用总数',
+} as const;
+
 const cardInfo = [
-  {
-    key: 'visitor',
-    type: 'line',
-  },
-  {
-    key: 'content',
-    type: 'interval',
-  },
-  {
-    key: 'comment',
-    type: 'line',
-  },
-  {
-    key: 'share',
-    type: 'pie',
-  },
+  { key: 'visitor', type: 'line' },
+  { key: 'content', type: 'interval' },
+  { key: 'comment', type: 'line' },
+  { key: 'share', type: 'pie' },
 ];
 
 function PublicOpinion() {
-  const t = useLocale(locale);
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<PublicOpinionCardProps[]>(
-    cardInfo.map((item) => ({
-      ...item,
-      chartType: item.type as 'line' | 'pie' | 'interval',
-      title: t[`dataAnalysis.publicOpinion.${item.key}`],
-    }))
-  );
+  const [data, setData] = useState<PublicOpinionCardProps[]>([]);
 
   const getData = async () => {
     try {
@@ -71,7 +57,6 @@ function PublicOpinion() {
               break;
           }
 
-          // 生成简单的趋势数据
           if (overview.trend && overview.trend.length > 0) {
             chartData = overview.trend.map((item: any) => ({
               count: item.count,
@@ -82,7 +67,7 @@ function PublicOpinion() {
           return {
             key: info.key,
             chartType: info.type as 'line' | 'pie' | 'interval',
-            title: t[`dataAnalysis.publicOpinion.${info.key}`],
+            title: TITLE_MAP[info.key as keyof typeof TITLE_MAP],
             count,
             increment,
             diff: Math.abs(diff),
@@ -102,21 +87,14 @@ function PublicOpinion() {
     getData();
   }, []);
 
-  const formatData = useMemo(() => {
-    return data.map((item) => ({
-      ...item,
-      title: t[`dataAnalysis.publicOpinion.${item.key}`],
-    }));
-  }, [t, data]);
-
   return (
     <div>
       <Row gutter={20}>
-        {formatData.map((item, index) => (
+        {data.map((item, index) => (
           <Col span={6} key={index}>
             <PublicOpinionCard
               {...item}
-              compareTime={t['dataAnalysis.yesterday']}
+              compareTime="较昨日"
               loading={loading}
             />
           </Col>

@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Card, Grid, Table, Space, Typography, Message } from '@arco-design/web-react';
-import useLocale from '@/utils/useLocale';
+import { Card, Grid, Table, Space, Typography } from '@arco-design/web-react';
 import axios from 'axios';
-import locale from './locale';
 import PublicOpinion from './public-opinion';
 import MultiInterval from '@/components/Chart/multi-stack-interval';
 import PeriodLine from '@/components/Chart/period-legend-line';
@@ -10,7 +8,6 @@ import PeriodLine from '@/components/Chart/period-legend-line';
 const { Row, Col } = Grid;
 
 function DataAnalysis() {
-  const t = useLocale(locale);
   const [loading, setLoading] = useState(false);
   const [tableLoading, setTableLoading] = useState(false);
 
@@ -71,17 +68,17 @@ function DataAnalysis() {
   const columns = useMemo(() => {
     return [
       {
-        title: t['dataAnalysis.authorTable.rank'],
+        title: '排名',
         dataIndex: 'id',
         width: 80,
       },
       {
-        title: t['dataAnalysis.authorTable.author'],
+        title: '知识标题',
         dataIndex: 'author',
         ellipsis: true,
       },
       {
-        title: t['dataAnalysis.authorTable.content'],
+        title: '引用次数',
         dataIndex: 'contentCount',
         width: 150,
         sorter: (a: any, b: any) => a.contentCount - b.contentCount,
@@ -90,7 +87,7 @@ function DataAnalysis() {
         },
       },
       {
-        title: t['dataAnalysis.authorTable.click'],
+        title: '消息数量',
         dataIndex: 'clickCount',
         width: 150,
         sorter: (a: any, b: any) => a.clickCount - b.clickCount,
@@ -99,13 +96,13 @@ function DataAnalysis() {
         },
       },
     ];
-  }, [t]);
+  }, []);
 
   return (
     <Space size={16} direction="vertical" style={{ width: '100%' }}>
       <Card>
         <Typography.Title heading={6}>
-          {t['dataAnalysis.title.publicOpinion']}
+          数据概览
         </Typography.Title>
         <PublicOpinion />
       </Card>
@@ -113,7 +110,7 @@ function DataAnalysis() {
         <Col span={14}>
           <Card>
             <Typography.Title heading={6}>
-              {t['dataAnalysis.title.publishingRate']}
+              每日活动趋势
             </Typography.Title>
             <MultiInterval 
               data={chartData.flatMap((item: any) => [
@@ -127,7 +124,7 @@ function DataAnalysis() {
         <Col span={10}>
           <Card>
             <Typography.Title heading={6}>
-              {t['dataAnalysis.title.authorsList']}
+              热门知识榜单
             </Typography.Title>
             <div style={{ height: '370px' }}>
               <Table
@@ -145,7 +142,7 @@ function DataAnalysis() {
         <Col span={24}>
           <Card>
             <Typography.Title heading={6}>
-              {t['dataAnalysis.title.publishingTiming']}
+              消息时段分布
             </Typography.Title>
             <PeriodLine 
               data={chartData.map((item: any) => ({

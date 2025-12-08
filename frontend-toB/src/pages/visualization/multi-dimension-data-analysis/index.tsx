@@ -1,20 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Typography, Card, Grid, Space } from '@arco-design/web-react';
 import axios from 'axios';
-import useLocale from '@/utils/useLocale';
 import HorizontalInterval from '@/components/Chart/horizontal-interval';
 import AreaPolar from '@/components/Chart/area-polar';
 import FactMultiPie from '@/components/Chart/fact-multi-pie';
-import locale from './locale';
 import DataOverview from './data-overview';
 import CardList from './card-list';
-
 
 const { Row, Col } = Grid;
 const { Title } = Typography;
 
 function DataAnalysis() {
-  const t = useLocale(locale);
   const [loading, setLoading] = useState(false);
   const [interval, setInterval] = useState([]);
   const [polarLoading, setPolarLoading] = useState(false);
@@ -94,7 +90,7 @@ function DataAnalysis() {
         <Col span={16}>
           <Card>
             <Title heading={6}>
-              {t['multiDAnalysis.card.title.dataOverview']}
+              数据总览
             </Title>
             <DataOverview />
           </Card>
@@ -102,7 +98,7 @@ function DataAnalysis() {
         <Col span={8}>
           <Card>
             <Title heading={6}>
-              {t['multiDAnalysis.card.title.todayActivity']}
+              最近7天活动趋势
             </Title>
             <HorizontalInterval
               data={interval}
@@ -112,7 +108,7 @@ function DataAnalysis() {
           </Card>
           <Card>
             <Title heading={6}>
-              {t['multiDAnalysis.card.title.contentTheme']}
+              知识库业务分布
             </Title>
             <AreaPolar
               data={polar.list}
@@ -132,7 +128,7 @@ function DataAnalysis() {
         <Col span={24}>
           <Card>
             <Title heading={6}>
-              {t['multiDAnalysis.card.title.contentSource']}
+              消息时段分布
             </Title>
             <FactMultiPie
               loading={multiPieLoading}

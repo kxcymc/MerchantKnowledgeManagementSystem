@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Grid, Space, Typography, Spin, DatePicker, Button, Message } from '@arco-design/web-react';
 import axios from 'axios';
-import useLocale from '@/utils/useLocale';
-import locale from './locale';
 import styles from './style/index.module.less';
 import HotKnowledgeHeatmap from './components/HotKnowledgeHeatmap';
 import TopQuestionsChart from './components/TopQuestionsChart';
@@ -13,7 +11,6 @@ const { Title } = Typography;
 const { RangePicker } = DatePicker;
 
 function KnowledgeInsight() {
-  const t = useLocale(locale);
   const [loading, setLoading] = useState({
     heatmap: false,
     topQuestions: false,
@@ -39,10 +36,10 @@ function KnowledgeInsight() {
       if (data.success) {
         setHeatmapData(data.data || []);
       } else {
-        Message.error(data.message || t['knowledgeInsight.error.fetchHeatmap']);
+        Message.error(data.message || '获取热点知识分布失败');
       }
     } catch (error: any) {
-      Message.error(error.message || t['knowledgeInsight.error.fetchHeatmap']);
+      Message.error(error.message || '获取热点知识分布失败');
       console.error('获取热点知识分布失败:', error);
     } finally {
       setLoading((prev) => ({ ...prev, heatmap: false }));
@@ -62,10 +59,10 @@ function KnowledgeInsight() {
       if (data.success) {
         setTopQuestionsData(data.data || []);
       } else {
-        Message.error(data.message || t['knowledgeInsight.error.fetchTopQuestions']);
+        Message.error(data.message || '获取高频问题失败');
       }
     } catch (error: any) {
-      Message.error(error.message || t['knowledgeInsight.error.fetchTopQuestions']);
+      Message.error(error.message || '获取高频问题失败');
       console.error('获取高频问题失败:', error);
     } finally {
       setLoading((prev) => ({ ...prev, topQuestions: false }));
@@ -85,10 +82,10 @@ function KnowledgeInsight() {
       if (data.success) {
         setZeroHitData(data.data || []);
       } else {
-        Message.error(data.message || t['knowledgeInsight.error.fetchZeroHit']);
+        Message.error(data.message || '获取零命中问题失败');
       }
     } catch (error: any) {
-      Message.error(error.message || t['knowledgeInsight.error.fetchZeroHit']);
+      Message.error(error.message || '获取零命中问题失败');
       console.error('获取零命中问题失败:', error);
     } finally {
       setLoading((prev) => ({ ...prev, zeroHit: false }));
@@ -135,19 +132,19 @@ function KnowledgeInsight() {
       {/* 页面标题和筛选器 */}
       <Card>
         <div className={styles.header}>
-          <Title heading={5}>{t['knowledgeInsight.title']}</Title>
+          <Title heading={5}>知识 & 会话可视化洞察</Title>
           <Space>
             <RangePicker
               value={dateRange}
               onChange={handleDateRangeChange}
-              placeholder={[t['knowledgeInsight.dateRange.start'], t['knowledgeInsight.dateRange.end']]}
+              placeholder={['开始日期', '结束日期']}
               style={{ width: 300 }}
             />
             <Button type="primary" onClick={handleApplyFilter}>
-              {t['knowledgeInsight.filter.apply']}
+              应用筛选
             </Button>
             <Button onClick={handleResetFilter}>
-              {t['knowledgeInsight.filter.reset']}
+              重置
             </Button>
           </Space>
         </div>
@@ -155,7 +152,7 @@ function KnowledgeInsight() {
 
       {/* 热点知识分布热力图 */}
       <Card>
-        <Title heading={6}>{t['knowledgeInsight.heatmap.title']}</Title>
+        <Title heading={6}>知识点读热力图</Title>
         <div className={styles.chartContainer}>
           <Spin loading={loading.heatmap} style={{ width: '100%', minHeight: 400 }}>
             <HotKnowledgeHeatmap data={heatmapData} />
@@ -167,7 +164,7 @@ function KnowledgeInsight() {
         {/* 高频问题 Top 10 */}
         <Col span={14}>
           <Card>
-            <Title heading={6}>{t['knowledgeInsight.topQuestions.title']}</Title>
+            <Title heading={6}>高频问题 Top 10</Title>
             <div className={styles.chartContainer}>
               <Spin loading={loading.topQuestions} style={{ width: '100%', minHeight: 400 }}>
                 <TopQuestionsChart data={topQuestionsData} />
@@ -179,22 +176,22 @@ function KnowledgeInsight() {
         {/* 统计卡片 */}
         <Col span={10}>
           <Card>
-            <Title heading={6}>{t['knowledgeInsight.stats.title']}</Title>
+            <Title heading={6}>统计概览</Title>
             <Space direction="vertical" size="large" style={{ width: '100%' }}>
               <div className={styles.statCard}>
-                <div className={styles.statLabel}>{t['knowledgeInsight.stats.totalKnowledge']}</div>
+                <div className={styles.statLabel}>热点知识数量</div>
                 <div className={styles.statValue}>{heatmapData.length}</div>
               </div>
               <div className={styles.statCard}>
-                <div className={styles.statLabel}>{t['knowledgeInsight.stats.totalQuestions']}</div>
+                <div className={styles.statLabel}>高频问题数量</div>
                 <div className={styles.statValue}>{topQuestionsData.length}</div>
               </div>
               <div className={styles.statCard}>
-                <div className={styles.statLabel}>{t['knowledgeInsight.stats.zeroHitCount']}</div>
+                <div className={styles.statLabel}>零命中问题数</div>
                 <div className={styles.statValue}>{zeroHitData.length}</div>
               </div>
               <div className={styles.statCard}>
-                <div className={styles.statLabel}>{t['knowledgeInsight.stats.totalCitations']}</div>
+                <div className={styles.statLabel}>总引用次数</div>
                 <div className={styles.statValue}>
                   {heatmapData.reduce((sum, item) => sum + (item.citation_count || 0), 0)}
                 </div>
@@ -206,7 +203,7 @@ function KnowledgeInsight() {
 
       {/* 零命中问题列表 */}
       <Card>
-        <Title heading={6}>{t['knowledgeInsight.zeroHit.title']}</Title>
+        <Title heading={6}>零命中问题列表</Title>
         <Spin loading={loading.zeroHit} style={{ width: '100%' }}>
           <ZeroHitQuestionsTable data={zeroHitData} />
         </Spin>
@@ -216,4 +213,3 @@ function KnowledgeInsight() {
 }
 
 export default KnowledgeInsight;
-

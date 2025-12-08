@@ -5,7 +5,7 @@ import cs from 'classnames';
 import {
   IconFile,
   IconPenFill,
-  // IconApps,
+  IconApps,
   // IconCheckCircle,
   IconMenuFold,
   IconMenuUnfold,
@@ -30,8 +30,8 @@ const Content = Layout.Content;
 
 function getIconFromKey(key) {
   switch (key) {
-    // case 'visualization':
-    //   return <IconApps className={styles.icon} />;
+    case 'visualization':
+      return <IconApps className={styles.icon} />;
     // case 'result':
     //   return <IconCheckCircle className={styles.icon} />;
     case 'knowledge-creation':

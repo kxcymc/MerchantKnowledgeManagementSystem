@@ -125,19 +125,55 @@ const Index: React.FC = () => {
 
     const deleteKnowledge = (id: number, title: string) => {
         const del = async () => {
+            const modal = Modal.info({
+                title: '处理中',
+                content: (
+                    <div style={{ textAlign: 'center' }}>
+                        正在删除文件...
+                    </div>
+                ),
+                footer: null,
+                closable: false,
+                maskClosable: false,
+                escToExit: false,
+            });
+
             try {
                 const res = await fetch(`/api/knowledge/${id}`, { method: 'DELETE' });
+                modal.close();
                 if (res.ok) {
-                    Message.success('删除成功');
+                    Modal.success({
+                        title: '成功',
+                        content: (
+                            <div style={{ textAlign: 'center' }}>
+                                删除成功
+                            </div>
+                        ),
+                    });
                     // 刷新列表
                     setFileList((prev) => prev.filter((i) => i.knowledge_id !== id));
                 } else {
                     const json = await res.json();
-                    Message.error(json.message || '删除失败');
+                    Modal.error({
+                        title: '失败',
+                        content: (
+                            <div style={{ textAlign: 'center' }}>
+                                {json.message || '删除失败'}
+                            </div>
+                        ),
+                    });
                 }
             } catch (err) {
+                modal.close();
                 console.error(err);
-                Message.error('删除出错');
+                Modal.error({
+                    title: '错误',
+                    content: (
+                        <div style={{ textAlign: 'center' }}>
+                            删除出错
+                        </div>
+                    ),
+                });
                 console.error(err);
             }
         }

@@ -10,9 +10,6 @@ import {
 import cs from 'classnames';
 import { Chart, Line, Interval, Tooltip, Interaction } from 'bizcharts';
 import axios from 'axios';
-import useLocale from '@/utils/useLocale';
-import locale from './locale';
-
 import { IconArrowRise, IconArrowFall } from '@arco-design/web-react/icon';
 import styles from './style/card-block.module.less';
 
@@ -48,6 +45,7 @@ function CustomTooltip(props: { items: any[] }) {
     </div>
   );
 }
+
 function SimpleLine(props: { chartData: any[] }) {
   const { chartData } = props;
   return (
@@ -154,8 +152,15 @@ const cardInfo = [
     type: 'interval',
   },
 ];
+
+const titleMap: Record<string, string> = {
+  userRetentionTrend: '会话趋势',
+  userRetention: '会话统计',
+  contentConsumptionTrend: '消息趋势',
+  contentConsumption: '消息统计',
+};
+
 function CardList() {
-  const t = useLocale(locale);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(
     cardInfo.map((item) => ({
@@ -167,16 +172,13 @@ function CardList() {
   const getData = async () => {
     setLoading(true);
     try {
-      // 获取数据总览
       const { data: overviewData } = await axios.get('/api/statistics/overview');
-      // 获取每日活动数据
       const { data: activityData } = await axios.get('/api/statistics/daily-activity');
       
       if (overviewData.success && activityData.success) {
         const overview = overviewData.data;
         const activity = activityData.data || [];
         
-        // 生成趋势数据
         const trendData = activity.map((item: any) => ({
           x: item.date,
           y: item.messages || 0,
@@ -243,9 +245,9 @@ function CardList() {
   const formatData = useMemo(() => {
     return data.map((item) => ({
       ...item,
-      title: t[`multiDAnalysis.cardList.${item.key}`],
+      title: titleMap[item.key],
     }));
-  }, [t, data]);
+  }, [data]);
 
   return (
     <Row gutter={16}>
