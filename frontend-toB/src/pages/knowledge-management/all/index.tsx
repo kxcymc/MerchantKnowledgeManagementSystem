@@ -209,7 +209,28 @@ export default function KnowledgeAll() {
 
     function handleSearch(params) {
         setPagination({ ...pagination, current: 1 });
-        setFormParams(params);
+        const newParams = { ...params };
+        
+        // 处理时间范围
+        if (newParams.createdTime && Array.isArray(newParams.createdTime)) {
+            newParams.start_date = newParams.createdTime[0];
+            newParams.end_date = newParams.createdTime[1];
+            delete newParams.createdTime;
+        }
+
+        // 处理多选字段，后端仅支持单值查询，故取第一个
+        ['business', 'scene', 'status'].forEach(key => {
+            if (Array.isArray(newParams[key])) {
+                if (newParams[key].length > 0) {
+                    newParams[key] = newParams[key][0];
+                } else {
+                    delete newParams[key];
+                }
+            }
+        });
+        
+
+        setFormParams(newParams);
     }
 
     function previewKnowledge(id: number, type: string, url = '') {

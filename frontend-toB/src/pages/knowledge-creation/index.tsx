@@ -170,11 +170,20 @@ export default function KnowledgeCreation() {
                 }
             }
         } catch (err) {
-            if (err instanceof Error) {
-                Message.error(err.message);
-            } else {
-                Message.error('请检查表单必填项');
-            }
+            console.error(err);
+            const message = err instanceof Error
+                ? err.message
+                : (typeof err === 'string' ? err : '创建失败，请检查表单或网络');
+
+            Message.error(message);
+            Modal.error({
+                title: '错误',
+                content: (
+                    <div style={{ textAlign: 'center' }}>
+                        {message}
+                    </div>
+                ),
+            });
         }
     };
 

@@ -190,9 +190,22 @@ const RichTextReader: FC<RichTextReaderProps> = ({
     const [isReady, setIsReady] = useState(false);
 
     const pages: Descendant[][] = useMemo(() => {
-        return Array.isArray(value) && value.length > 0 && Array.isArray(value[0])
-            ? (value as Descendant[][])
-            : [(value as Descendant[]) || [{ type: 'paragraph', children: [{ text: '' }] }]];
+        // 检查是否是多页格式：Descendant[][]
+        // 多页格式：value[0] 应该是数组，且 value[0][0] 应该是 Slate 节点（有 type 或 text）
+        const isMultiPage = 
+            Array.isArray(value) && 
+            value.length > 0 && 
+            Array.isArray(value[0]) &&
+            value[0].length > 0 &&
+            (typeof value[0][0] === 'object' && value[0][0] !== null) &&
+            ('type' in value[0][0] || 'text' in value[0][0]);
+        
+        if (isMultiPage) {
+            return value as Descendant[][];
+        } else {
+            // 单页格式或空数据
+            return [(value as Descendant[]) || [{ type: 'paragraph', children: [{ text: '' }] }]];
+        }
     }, [value]);
     const [currentPageIndex, setCurrentPageIndex] = useState(0);
 
@@ -223,6 +236,8 @@ const RichTextReader: FC<RichTextReaderProps> = ({
     if (!isReady) {
         return <div className={styles.loading}>加载预览中...</div>;
     }
+    console.log( 'pages',pages);
+    
 
     return (
         <div

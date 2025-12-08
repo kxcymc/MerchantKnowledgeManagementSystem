@@ -19,8 +19,34 @@ function SearchForm(props: {
 }) {
   const [form] = useForm();
 
+  function pickValid(obj) {
+    const result = {};
+    for (const key in obj) {
+      const value = obj[key];
+
+      // 判断无效值：undefined、null、空字符串、空数组、空对象
+      const isEmptyString = value === '';
+      const isEmptyArray = Array.isArray(value) && value.length === 0;
+      const isEmptyObject = value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0;
+
+      if (
+        value === undefined ||
+        value === null ||
+        isEmptyString ||
+        isEmptyArray ||
+        isEmptyObject
+      ) {
+        continue;
+      }
+
+      result[key] = value;
+    }
+    return result;
+  }
+
+
   const handleSubmit = () => {
-    const values = form.getFieldsValue();
+    const values = pickValid(form.getFieldsValue());
     props.onSearch(values);
   };
 

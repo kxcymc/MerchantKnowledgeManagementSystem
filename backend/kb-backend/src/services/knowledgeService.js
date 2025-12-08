@@ -523,30 +523,45 @@ async function addJsonKnowledge(jsonData, isUpdate = false, knowledge_id = null)
   const storagePath = fileUrl.replace(/^\//, ''); // uploads/json/46_xxx.json
   
   // 保存到向量数据库
-  const chunkCount = await ingestRawText({
-    text: jsonText,
-    title,
-    tags: [],
-    createdBy: 'system',
-    customMetadata: {
-      knowledgeId: knowledgeId.toString(),
-      business,
-      scene,
-      storagePath,
-      status: '生效中',
-      isActive: true,
-      sourceType: 'json'
+  try {
+    const chunkCount = await ingestRawText({
+      text: jsonText,
+      title,
+      tags: [],
+      createdBy: 'system',
+      customMetadata: {
+        knowledgeId: knowledgeId.toString(),
+        business,
+        scene,
+        storagePath,
+        status: '生效中',
+        isActive: true,
+        sourceType: 'json'
+      }
+    });
+    
+    // 更新MySQL中的file_url
+    await dbService.updateKnowledge(knowledgeId, {
+      file_url: getFileUrl(filePath)
+    });
+    
+    logger.info(shouldUpdate ? 'JSON知识更新成功' : 'JSON知识添加成功', { knowledgeId, title, chunks: chunkCount });
+    
+    return { knowledge_id: knowledgeId, chunks: chunkCount, updated: shouldUpdate };
+  } catch (error) {
+    logger.error('向量化失败，执行回滚', { knowledgeId, error: error.message });
+    
+    // 回滚：如果不更新操作（是新增），则删除刚刚插入的记录
+    if (!shouldUpdate) {
+      await dbService.deleteKnowledge(knowledgeId);
+      // 删除已保存的文件
+      if (await fs.pathExists(filePath)) {
+        await fs.remove(filePath);
+      }
     }
-  });
-  
-  // 更新MySQL中的file_url
-  await dbService.updateKnowledge(knowledgeId, {
-    file_url: getFileUrl(filePath)
-  });
-  
-  logger.info(shouldUpdate ? 'JSON知识更新成功' : 'JSON知识添加成功', { knowledgeId, title, chunks: chunkCount });
-  
-  return { knowledge_id: knowledgeId, chunks: chunkCount, updated: shouldUpdate };
+    
+    throw error;
+  }
 }
 
 // 更新文件知识

@@ -2,8 +2,8 @@ import React, { useContext, useEffect, useState } from "react";
 import { useHistory, useLocation } from 'react-router-dom';
 import styles from './style/index.module.less';
 import RichTextReader from "@/components/RichTextReader";
-import { RICH_TEXT_MULTIPLE_DATA, RICH_TEXT_SINGLE_DATA, EMPTY_DOCUMENT } from "@/constant";
-import { Button, Modal } from "@arco-design/web-react";
+import { EMPTY_DOCUMENT } from "@/constant";
+import { Button, Modal, Spin } from "@arco-design/web-react";
 import { GlobalContext } from '@/context';
 import { getKnowledgeDetail } from '@/api';
 import type { Descendant } from 'slate';
@@ -16,6 +16,7 @@ const RichTextPreview = () => {
     const knowledgeIdParam = new URLSearchParams(location.search).get('knowledge_id');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [content, setContent] = useState<Descendant[] | Descendant[][] | null>(null);
 
     useEffect(() => {
         if (!knowledgeIdParam || Number.isNaN(Number(knowledgeIdParam))) {
@@ -27,27 +28,27 @@ const RichTextPreview = () => {
             try {
                 setLoading(true);
                 setError(null);
-                const res = await fetch(`/api/query?knowledge_id=${knowledgeIdParam}`);
                 
-                if (!res.ok) {
-                    const errorData = await res.json();
-                    throw new Error(errorData.message || '获取内容失败');
-                }
-
-                const data = await res.json();
+                const res = await getKnowledgeDetail({ knowledge_id: Number(knowledgeIdParam) });
                 
-                // 检查是否是富文本类型
-                if (data.type !== 'json') {
-                    setError('该文档不是富文本类型，无法预览');
-                    setContent(null);
-                    return;
-                }
-
-                // 解析 content 字段
-                if (data.content) {
-                    // content 可能是 Descendant[][] 或 Descendant[]
-                    // RichTextReader 组件可以处理这两种格式
-                    setContent(data.content);
+                console.log('API Response:', res); // 调试日志
+                
+                if (res.data && res.data.content) {
+                    let contentData = res.data.content;
+                    
+                    // 如果 content 是字符串，尝试解析
+                    if (typeof contentData === 'string') {
+                        try {
+                            contentData = JSON.parse(contentData);
+                        } catch (e) {
+                            console.error('Parse content error', e);
+                            setError('内容解析失败');
+                            return;
+                        }
+                    }
+                    
+                    console.log('Parsed content:', contentData); // 调试日志
+                    setContent(contentData);
                 } else {
                     setError('该文档没有内容');
                     setContent(null);
@@ -64,30 +65,8 @@ const RichTextPreview = () => {
         fetchContent();
     }, [knowledgeIdParam, history, location.pathname, location.search]);
 
-    const [content, setContent] = React.useState<Descendant[]>(EMPTY_DOCUMENT);
-
     useEffect(() => {
-        if (knowledgeIdParam) {
-            getKnowledgeDetail({ knowledge_id: Number(knowledgeIdParam) })
-                .then(res => {
-                    if (res.data && res.data.content) {
-                        let contentData = res.data.content;
-                        if (typeof contentData === 'string') {
-                            try {
-                                contentData = JSON.parse(contentData);
-                            } catch (e) {
-                                console.error('Parse content error', e);
-                            }
-                        }
-                        setContent(contentData);
-                    }
-                })
-                .catch(err => {
-                    console.error(err);
-                });
-        }
-
-        if (theme==='dark'){
+        if (theme === 'dark') {
             Modal.confirm({
                 title: '建议',
                 content: (
@@ -99,7 +78,8 @@ const RichTextPreview = () => {
                 onOk: () => setTheme('light'),
             });
         }
-    }, [knowledgeIdParam])
+    }, [theme, setTheme]);
+
     const handleBack = () => {
         if (history.length > 1) {
             history.goBack();
@@ -108,16 +88,34 @@ const RichTextPreview = () => {
         }
     };
 
+    // 判断是否显示导航按钮
+    const shouldShowNavBtn = content && Array.isArray(content) && content.length > 1 && Array.isArray(content[0]);
+
     return (
         <div className={styles.wrapper}>
             <Button key="back" type="outline" onClick={handleBack} className={styles.backBtn}>
                 返回
             </Button>
-            {/* <RichTextReader value={RICH_TEXT_SINGLE_DATA} showNavBtn={false}></RichTextReader> */}
-            <RichTextReader 
-                value={content} 
-                showNavBtn={Array.isArray(content) && Array.isArray(content[0]) && content.length > 1}
-            />
+            
+            {loading && (
+                <div style={{ textAlign: 'center', padding: '50px' }}>
+                    <Spin size={40} />
+                    <div style={{ marginTop: '20px' }}>加载中...</div>
+                </div>
+            )}
+            
+            {error && (
+                <div style={{ textAlign: 'center', padding: '50px', color: 'red' }}>
+                    {error}
+                </div>
+            )}
+            
+            {!loading && !error && content && (
+                <RichTextReader 
+                    value={content} 
+                    showNavBtn={shouldShowNavBtn}
+                />
+            )}
         </div>
     );
 }
