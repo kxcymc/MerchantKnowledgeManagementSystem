@@ -270,12 +270,19 @@ export default function KnowledgeEdit() {
     };
 
     const handleValuesChange = () => {
+        const currentBusiness = form.getFieldValue('business');
+
         setHasValue(Object.values(form.getFieldsValue()).some(val =>
             val !== undefined && val !== '' && val !== null
         ));
-        if (form.getFieldValue('business') === '招商入驻')
+
+        if (currentBusiness === '招商入驻') {
             setIsShowSceneSelectCol(true);
-        else setIsShowSceneSelectCol(false);
+        } else {
+            setIsShowSceneSelectCol(false);
+            // 非“招商入驻”业务时清空场景，避免携带旧值
+            form.setFieldValue('scene', '');
+        }
     }
 
     const handleBack = () => {

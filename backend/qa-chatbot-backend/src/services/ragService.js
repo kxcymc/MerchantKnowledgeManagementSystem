@@ -692,10 +692,10 @@ class RAGService {
         
         // 如果该知识库还没有添加到引用列表
         if (!knowledgeIdMap.has(knowledgeIdNum)) {
-          // 从知识库数据库获取完整信息
-          try {
+        // 从知识库数据库获取完整信息
+        try {
             const knowledge = await dbService.getKnowledgeById(knowledgeIdNum);
-            if (knowledge) {
+          if (knowledge) {
               // 初始化页码列表
               const pages = [];
               if (page !== null) {
@@ -709,17 +709,17 @@ class RAGService {
               }
               
               knowledgeIdMap.set(knowledgeIdNum, {
-                knowledge_id: knowledge.knowledge_id,
-                title: knowledge.title,
-                type: this.getFileType(knowledge.type),
+              knowledge_id: knowledge.knowledge_id,
+              title: knowledge.title,
+              type: this.getFileType(knowledge.type),
                 file_url: knowledge.file_url || '',
                 pages: pages, // 存储所有页码和得分
                 score: currentScore // 最高得分
-              });
-            }
-          } catch (error) {
-            logger.warn('获取知识库信息失败', { knowledgeId, error: error.message });
+            });
           }
+        } catch (error) {
+          logger.warn('获取知识库信息失败', { knowledgeId, error: error.message });
+        }
         } else {
           // 如果已存在，添加新的页码信息（如果不同）
           const existingRef = knowledgeIdMap.get(knowledgeIdNum);

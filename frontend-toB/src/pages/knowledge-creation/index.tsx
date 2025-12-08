@@ -16,7 +16,6 @@ import { UploadItem } from '@arco-design/web-react/es/Upload';
 import { useHistory, useLocation } from 'react-router-dom';
 import type { Descendant } from 'slate';
 import RichTextEditor from '@/components/RichTextEditor/index';
-import { addKnowledgeJson, addKnowledgeFile, batchAddKnowledge } from '@/api';
 
 export default function KnowledgeCreation() {
     const [form] = Form.useForm();
@@ -78,132 +77,104 @@ export default function KnowledgeCreation() {
         });
     };
 
+    interface Payload {
+        business: string;
+        scene: string;
+        file_url?: string;
+        title?: string;
+        mode: 'pdf' | '富文本' | '';
+        content?: string;
+        files?: { name: string; size: number; link?: string }[];
+    }
+
     const handleSubmit = async () => {
         try {
             const values = await form.validate();
             if (!values.business) {
-                Modal.warning({
-                    title: '提示',
-                    content: (
-                        <div style={{ textAlign: 'center' }}>
-                            请选择所属业务
-                        </div>
-                    ),
-                });
+                Message.error('请选择所属业务');
                 return;
             }
             if (isShowSceneSelectCol && !values.scene) {
-                Modal.warning({
-                    title: '提示',
-                    content: (
-                        <div style={{ textAlign: 'center' }}>
-                            请选择所属场景
-                        </div>
-                    ),
-                });
+                Message.error('请选择所属场景');
                 return;
             }
 
-            const loadingModal = Modal.info({
-                title: '处理中',
-                content: (
-                    <div style={{ textAlign: 'center' }}>
-                        正在创建知识...
-                    </div>
-                ),
-                footer: null,
-                closable: false,
-                maskClosable: false,
-                escToExit: false,
-            });
+            if (mode === '富文本') {
+                // 富文本模式：发送 JSON 数据
+                const payload = {
+                    business: values.business,
+                    scene: values.scene || '',
+                    title: values.title || '',
+                    content: JSON.stringify(editorContent),
+                    type: 'json'
+                };
 
-            try {
-                if (mode === '富文本') {
-                    await addKnowledgeJson({
-                        title: values.title,
-                        content: JSON.stringify(editorContent),
-                        business: values.business,
-                        scene: values.scene,
-                    });
-                } else if (mode === 'pdf') {
-                    if (fileList.length === 0) {
-                        loadingModal.close();
-                        Modal.warning({
-                            title: '提示',
-                            content: (
-                                <div style={{ textAlign: 'center' }}>
-                                    请至少上传一个文件
-                                </div>
-                            ),
-                        });
-                        return;
-                    }
+                const response = await fetch('/api/add', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload),
+                });
 
-                    if (fileList.length === 1) {
-                        const file = fileList[0].originFile;
-                        if (!file) {
-                            loadingModal.close();
-                            Modal.warning({
-                                title: '提示',
-                                content: (
-                                    <div style={{ textAlign: 'center' }}>
-                                        文件对象丢失
-                                    </div>
-                                ),
-                            });
-                            return;
-                        }
-                        await addKnowledgeFile({
-                            document: file,
-                            business: values.business,
-                            scene: values.scene,
-                        });
-                    } else {
-                        const files = fileList.map(f => f.originFile).filter(Boolean) as File[];
-                        if (files.length !== fileList.length) {
-                            loadingModal.close();
-                            Modal.warning({
-                                title: '提示',
-                                content: (
-                                    <div style={{ textAlign: 'center' }}>
-                                        部分文件对象丢失
-                                    </div>
-                                ),
-                            });
-                            return;
-                        }
-                        await batchAddKnowledge({
-                            documents: files,
-                            business: values.business,
-                            scene: values.scene,
-                        });
-                    }
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || '提交失败');
                 }
 
-                loadingModal.close();
-                Modal.success({
-                    title: '成功',
-                    content: (
-                        <div style={{ textAlign: 'center' }}>
-                            知识创建成功
-                        </div>
-                    ),
-                });
+                const result = await response.json();
+                Message.success('知识创建成功');
                 history.push('/knowledge-management/all');
-            } catch (err) {
-                loadingModal.close();
-                throw err;
+            } else {
+                // PDF 模式：发送文件
+                if (fileList.length === 0) {
+                    Message.error('请至少上传一个文件');
+                    return;
+                }
+
+                // 处理多个文件上传
+                const uploadPromises = fileList.map(async (fileItem) => {
+                    const file = fileItem.originFile as File;
+                    if (!file) {
+                        throw new Error('文件对象不存在');
+                    }
+
+                    const formData = new FormData();
+                    formData.append('document', file);
+                    formData.append('business', values.business);
+                    formData.append('scene', values.scene || '');
+                    // 如果只有一个文件，使用用户输入的标题；多个文件使用文件名
+                    formData.append('title', fileList.length === 1
+                        ? (values.title || file.name)
+                        : (file.name.replace(/\.pdf$/i, '')));
+
+                    const response = await fetch('/api/add', {
+                        method: 'POST',
+                        body: formData,
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.message || `文件 ${file.name} 上传失败`);
+                    }
+
+                    return await response.json();
+                });
+
+                try {
+                    const results = await Promise.all(uploadPromises);
+                    Message.success(`成功上传 ${results.length} 个文件`);
+                    history.push('/knowledge-management/all');
+                } catch (error) {
+                    Message.error(error instanceof Error ? error.message : '文件上传失败');
+                }
             }
         } catch (err) {
-            console.error(err);
-            Modal.error({
-                title: '错误',
-                content: (
-                    <div style={{ textAlign: 'center' }}>
-                        创建失败，请检查表单或网络
-                    </div>
-                ),
-            });
+            if (err instanceof Error) {
+                Message.error(err.message);
+            } else {
+                Message.error('请检查表单必填项');
+            }
         }
     };
 
@@ -334,8 +305,13 @@ export default function KnowledgeCreation() {
                                     </Form.Item>
 
                                     {fileList.length === 1 &&
-                                        (<Form.Item label="文件标题" field="title">
-                                            <Input placeholder="可填，不填就和上传的文件名一致" />
+                                        (<Form.Item
+                                            label="文件标题"
+                                            field="title"
+                                            // 可选：不填则后端使用文件名
+                                            rules={[]}
+                                        >
+                                            <Input placeholder="可选，不填则默认使用文件名" />
                                         </Form.Item>)
                                     }
                                 </>
@@ -343,7 +319,7 @@ export default function KnowledgeCreation() {
 
                             {mode === '富文本' && (
                                 <>
-                                    <Form.Item label="文档标题" field="title" rules={[{ required: true, message: '请输入标题' }]}>
+                                    <Form.Item label="文档标题" field="title" rules={[{ required: true, message: '请输入标题' }]}>     
                                         <Input placeholder="输入标题" />
                                     </Form.Item>
 
@@ -360,7 +336,7 @@ export default function KnowledgeCreation() {
 
                     <Form.Item wrapperCol={{ offset: 4 }}>
                         <Button type="primary" onClick={handleSubmit} disabled={!hasValue}>提交</Button>
-                        <Button style={{ marginLeft: 12 }} onClick={() => history.push('/knowledge-management/all')}>取消</Button>
+                        <Button style={{ marginLeft: 12 }} onClick={() => history.push('/knowledge-management/all')}>取消</Button>     
                     </Form.Item>
                 </Form>
             </Card>
