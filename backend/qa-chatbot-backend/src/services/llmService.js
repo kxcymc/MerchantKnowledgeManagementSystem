@@ -28,7 +28,9 @@ class LLMService {
       'qwen': {
         apiKey: config.dashScopeKey,
         baseURL: config.llm.baseURL || config.dashScopeBaseURL,
-        defaultModel: 'qwen-turbo'
+        defaultModel: 'qwen-turbo',
+        // 多模态模型选项：'qwen-vl-max', 'qwen3-vl-flash', 'qwen3-livetranslate-flash'
+        multimodalModels: ['qwen-vl-max', 'qwen3-vl-flash', 'qwen3-livetranslate-flash']
       }
     };
 

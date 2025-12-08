@@ -33,8 +33,18 @@ class RAGService {
    */
   async classifyQuestion(question) {
     try {
-      const questionLower = question.toLowerCase();
-      const questionTrimmed = question.trim();
+      // 支持多模态输入：如果是数组，提取文本部分
+      let questionText = question;
+      if (Array.isArray(question)) {
+        const textItem = question.find(item => item.type === 'text');
+        questionText = textItem ? textItem.text : '';
+      }
+      if (typeof questionText !== 'string') {
+        questionText = String(questionText || '');
+      }
+      
+      const questionLower = questionText.toLowerCase();
+      const questionTrimmed = questionText.trim();
       
       // ========== 第一步：明显日常对话关键词（高置信度） ==========
       const obviousCasualKeywords = [
@@ -276,7 +286,8 @@ class RAGService {
 2. 对于业务相关问题，要礼貌地引导用户："这个问题涉及业务规则，建议您使用专业问答模式，我可以为您查找准确的知识库内容。"
 3. **回答格式要求**：
    - 使用清晰的结构，可以用段落、列表等方式组织内容
-   - 重要信息可以用**加粗**强调
+   - **必须对重点词汇使用加粗标记**：对于"经营成长"、"招商入驻"、"保证金管理"、"入驻与退出"、"资金结算"等专业服务领域词汇，必须使用**加粗**标记（例如：**经营成长**、**招商入驻**）
+   - 对于其他重要名词、关键概念、专业术语（如"商品体验"、"物流体验"、"服务体验"、"保证金"、"结算单"等），也必须使用**加粗**标记
    - 如果涉及步骤，使用有序列表（1. 2. 3.）
    - 如果涉及多个要点，使用无序列表（• 或 -）
 4. **重要**：不要主动提及日常聊天、讲笑话、讲段子等非业务功能，专注于商家运营管理服务
@@ -284,13 +295,18 @@ class RAGService {
 
 **自我介绍（当用户询问时）**：
 简洁专业地介绍："我是小抖，您的商家运营管理助手。我可以帮助您解决以下业务问题：
-• 经营成长：店铺经营策略、商品管理、数据分析、业绩提升等
-• 招商入驻：入驻申请流程、资质要求、审核标准等
-• 保证金管理：保证金缴纳、退还、冻结解冻等规则
-• 入驻与退出：退出流程、关店申请、退出条件等
-• 资金结算：结算规则、提现流程、账单发票等
+• **经营成长**：店铺经营策略、商品管理、数据分析、业绩提升等
+• **招商入驻**：入驻申请流程、资质要求、审核标准等
+• **保证金管理**：保证金缴纳、退还、冻结解冻等规则
+• **入驻与退出**：退出流程、关店申请、退出条件等
+• **资金结算**：结算规则、提现流程、账单发票等
 
-有什么业务问题需要我帮助的吗？"`
+有什么业务问题需要我帮助的吗？"
+
+**重要格式要求**：
+- 在介绍专业服务领域时，必须对以下重点词汇使用**加粗**标记：**经营成长**、**招商入驻**、**保证金管理**、**入驻与退出**、**资金结算**
+- 对于其他重要名词、关键概念、专业术语，也必须使用**加粗**标记（例如：**商品体验**、**物流体验**、**服务体验**、**保证金**、**结算单**等）
+- 确保所有重点词汇都使用 **词汇** 格式进行加粗，不要使用【】或其他格式`
 
       ],
       new MessagesPlaceholder('chat_history'),
@@ -452,22 +468,41 @@ class RAGService {
    */
   async queryStream(question, chatHistory = [], onToken) {
     try {
+      // 判断question是字符串还是多模态消息数组
+      const isMultimodal = Array.isArray(question);
+      const questionText = isMultimodal 
+        ? (question.find(item => item.type === 'text')?.text || '') 
+        : question;
+      
       // 1. 判断问题类型（专业问题 vs 日常问答）
-      const classification = await this.classifyQuestion(question);
+      // 对于多模态输入，如果有文本则用文本判断，否则默认为专业问题
+      const classification = questionText 
+        ? await this.classifyQuestion(questionText)
+        : { isProfessional: true, confidence: 0.5 };
       
       // 2. 如果是日常问答，使用纯对话模式（不检索知识库）
       if (!classification.isProfessional) {
-        logger.info('识别为日常问答，使用纯对话模式', { question: question.substring(0, 50) });
+        logger.info('识别为日常问答，使用纯对话模式', { 
+          question: questionText.substring(0, 50),
+          isMultimodal 
+        });
         
-        const prompt = this.buildChatPrompt();
-        const chain = RunnableSequence.from([prompt, this.llm]);
+        // 构建多模态消息或文本消息
+        const { HumanMessage } = require('@langchain/core/messages');
+        const userMessage = isMultimodal 
+          ? question 
+          : [{ type: 'text', text: question }];
+        
+        const humanMsg = new HumanMessage({
+          content: userMessage
+        });
+        
+        // 构建消息历史
+        const messages = [...chatHistory, humanMsg];
         
         let fullAnswer = '';
-        // 使用 chain.stream() 启用流式处理，所有模型都支持
-        const stream = await chain.stream({
-          question,
-          chat_history: chatHistory
-        });
+        // 直接调用LLM的stream方法
+        const stream = await this.llm.stream(messages);
 
         // 实时处理流式响应
         for await (const chunk of stream) {
@@ -489,10 +524,15 @@ class RAGService {
       }
 
       // 3. 专业问题：进行知识库检索
-      logger.info('识别为专业问题，使用知识库检索', { question: question.substring(0, 50) });
+      logger.info('识别为专业问题，使用知识库检索', { 
+        question: questionText.substring(0, 50),
+        isMultimodal 
+      });
       
-      // 3.1 向量检索
-      const documents = await this.retrieveDocuments(question);
+      // 3.1 向量检索（只使用文本部分进行检索）
+      const documents = questionText 
+        ? await this.retrieveDocuments(questionText)
+        : [];
       
       // 3.2 构建上下文
       const context = this.buildContext(documents);
@@ -518,48 +558,96 @@ class RAGService {
       // 3.4 构建提示词
       const prompt = this.buildRAGPrompt();
       
-      // 3.5 构建 Chain
-      const chain = RunnableSequence.from([
-        prompt,
-        this.llm
-      ]);
+      // 3.5 处理多模态输入
+      if (isMultimodal) {
+        // 多模态输入：直接使用LLM，将上下文作为系统消息
+        const { HumanMessage, SystemMessage } = require('@langchain/core/messages');
+        const systemMsg = new SystemMessage({
+          content: `你是"小抖"，一个专业、智能的商家运营管理助手。请基于以下知识库内容回答用户的问题：
 
-      // 3.6 流式调用 LLM（所有模型都支持流式处理）
-      let fullAnswer = '';
-      const stream = await chain.stream({
-        context,
-        question,
-        chat_history: chatHistory
-      });
+${context}
 
-      // 3.7 实时处理流式响应
-      for await (const chunk of stream) {
-        const content = chunk.content || '';
-        if (content) {
-          fullAnswer += content;
-          // 实时回调每个 token
-          if (onToken) {
-            onToken(content);
+**回答要求**：
+1. 准确、专业地回答用户问题
+2. 如果知识库中没有相关信息，请诚实说明
+3. 回答要简洁、清晰、有条理`
+        });
+        const humanMsg = new HumanMessage({
+          content: question // 多模态消息数组
+        });
+        const messages = [...chatHistory, systemMsg, humanMsg];
+        
+        let fullAnswer = '';
+        const stream = await this.llm.stream(messages);
+        
+        for await (const chunk of stream) {
+          const content = chunk.content || '';
+          if (content) {
+            fullAnswer += content;
+            if (onToken) {
+              onToken(content);
+            }
           }
         }
+        
+        // 3.8 提取引用信息
+        const references = await this.extractReferences(documents);
+        
+        logger.info('RAG 流式查询完成（多模态）', { 
+          question: questionText.substring(0, 50),
+          answerLength: fullAnswer.length,
+          referencesCount: references.length
+        });
+        
+        return {
+          answer: fullAnswer,
+          role: 'AI',
+          references,
+          hasRelevantDocs: documents.length > 0
+        };
+      } else {
+        // 文本输入：使用原有的Chain方式
+        const chain = RunnableSequence.from([
+          prompt,
+          this.llm
+        ]);
+
+        // 3.6 流式调用 LLM（所有模型都支持流式处理）
+        let fullAnswer = '';
+        const stream = await chain.stream({
+          context,
+          question,
+          chat_history: chatHistory
+        });
+
+        // 3.7 实时处理流式响应
+        for await (const chunk of stream) {
+          const content = chunk.content || '';
+          if (content) {
+            fullAnswer += content;
+            // 实时回调每个 token
+            if (onToken) {
+              onToken(content);
+            }
+          }
+        }
+
+        // 3.8 提取引用信息
+        const references = await this.extractReferences(documents);
+
+        logger.info('RAG 流式查询完成', { 
+          question: question.substring(0, 50),
+          answerLength: fullAnswer.length,
+          referencesCount: references.length
+        });
+
+        return {
+          answer: fullAnswer,
+          role: 'AI',
+          references,
+          hasRelevantDocs: true
+        };
       }
-
-      // 3.8 提取引用信息
-      const references = await this.extractReferences(documents);
-
-      logger.info('RAG 流式查询完成', { 
-        question: question.substring(0, 50),
-        answerLength: fullAnswer.length,
-        referencesCount: references.length
-      });
-
-      return {
-        answer: fullAnswer,
-        role: 'AI',
-        references,
-        hasRelevantDocs: true
-      };
-
     } catch (error) {
       logger.error('RAG 流式查询失败', { error: error.message, stack: error.stack });
       throw error;
@@ -571,20 +659,38 @@ class RAGService {
    */
   async query(question, chatHistory = []) {
     try {
+      // 判断question是字符串还是多模态消息数组
+      const isMultimodal = Array.isArray(question);
+      const questionText = isMultimodal 
+        ? (question.find(item => item.type === 'text')?.text || '') 
+        : question;
+      
       // 1. 判断问题类型（专业问题 vs 日常问答）
-      const classification = await this.classifyQuestion(question);
+      const classification = questionText 
+        ? await this.classifyQuestion(questionText)
+        : { isProfessional: true, confidence: 0.5 };
       
       // 2. 如果是日常问答，使用纯对话模式（不检索知识库）
       if (!classification.isProfessional) {
-        logger.info('识别为日常问答，使用纯对话模式', { question: question.substring(0, 50) });
-        
-        const prompt = this.buildChatPrompt();
-        const chain = RunnableSequence.from([prompt, this.llm]);
-        
-        const response = await chain.invoke({
-          question,
-          chat_history: chatHistory
+        logger.info('识别为日常问答，使用纯对话模式', { 
+          question: questionText.substring(0, 50),
+          isMultimodal 
         });
+        
+        // 构建多模态消息或文本消息
+        const { HumanMessage } = require('@langchain/core/messages');
+        const userMessage = isMultimodal 
+          ? question 
+          : [{ type: 'text', text: question }];
+        
+        const humanMsg = new HumanMessage({
+          content: userMessage
+        });
+        
+        // 构建消息历史
+        const messages = [...chatHistory, humanMsg];
+        
+        const response = await this.llm.invoke(messages);
 
         return {
           answer: response.content,
@@ -595,10 +701,15 @@ class RAGService {
       }
 
       // 3. 专业问题：进行知识库检索
-      logger.info('识别为专业问题，使用知识库检索', { question: question.substring(0, 50) });
+      logger.info('识别为专业问题，使用知识库检索', { 
+        question: questionText.substring(0, 50),
+        isMultimodal 
+      });
       
-      // 3.1 向量检索
-      const documents = await this.retrieveDocuments(question);
+      // 3.1 向量检索（只使用文本部分进行检索）
+      const documents = questionText 
+        ? await this.retrieveDocuments(questionText)
+        : [];
       
       // 3.2 构建上下文
       const context = this.buildContext(documents);
@@ -616,37 +727,74 @@ class RAGService {
       // 3.4 构建提示词
       const prompt = this.buildRAGPrompt();
       
-      // 3.5 构建 Chain
-      const chain = RunnableSequence.from([
-        prompt,
-        this.llm
-      ]);
+      // 3.5 处理多模态输入
+      if (isMultimodal) {
+        // 多模态输入：直接使用LLM，将上下文作为系统消息
+        const { HumanMessage, SystemMessage } = require('@langchain/core/messages');
+        const systemMsg = new SystemMessage({
+          content: `你是"小抖"，一个专业、智能的商家运营管理助手。请基于以下知识库内容回答用户的问题：
 
-      // 3.6 调用 LLM
-      const response = await chain.invoke({
-        context,
-        question,
-        chat_history: chatHistory
-      });
+${context}
 
-      const answer = response.content;
+**回答要求**：
+1. 准确、专业地回答用户问题
+2. 如果知识库中没有相关信息，请诚实说明
+3. 回答要简洁、清晰、有条理`
+        });
+        const humanMsg = new HumanMessage({
+          content: question // 多模态消息数组
+        });
+        const messages = [...chatHistory, systemMsg, humanMsg];
+        
+        const response = await this.llm.invoke(messages);
+        
+        // 3.8 提取引用信息
+        const references = await this.extractReferences(documents);
+        
+        logger.info('RAG 查询完成（多模态）', { 
+          question: questionText.substring(0, 50),
+          answerLength: response.content?.length || 0,
+          referencesCount: references.length
+        });
+        
+        return {
+          answer: response.content,
+          role: 'AI',
+          references,
+          hasRelevantDocs: documents.length > 0
+        };
+      } else {
+        // 文本输入：使用原有的Chain方式
+        const chain = RunnableSequence.from([
+          prompt,
+          this.llm
+        ]);
 
-      // 3.7 提取引用信息
-      const references = await this.extractReferences(documents);
+        // 3.6 调用 LLM
+        const response = await chain.invoke({
+          context,
+          question,
+          chat_history: chatHistory
+        });
 
-      logger.info('RAG 查询完成', { 
-        question: question.substring(0, 50),
-        answerLength: answer.length,
-        referencesCount: references.length
-      });
+        const answer = response.content;
 
-      return {
-        answer,
-        role: 'AI',
-        references,
-        hasRelevantDocs: true
-      };
+        // 3.7 提取引用信息
+        const references = await this.extractReferences(documents);
 
+        logger.info('RAG 查询完成', { 
+          question: question.substring(0, 50),
+          answerLength: answer.length,
+          referencesCount: references.length
+        });
+
+        return {
+          answer,
+          role: 'AI',
+          references,
+          hasRelevantDocs: true
+        };
+      }
     } catch (error) {
       logger.error('RAG 查询失败', { error: error.message, stack: error.stack });
       throw error;
