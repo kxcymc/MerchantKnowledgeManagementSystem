@@ -200,7 +200,7 @@ export default function KnowledgeCreation() {
                 title: '错误',
                 content: (
                     <div style={{ textAlign: 'center' }}>
-                        创建失败，请检查表单或网络
+                         {err instanceof Error ? err.message : (typeof err === 'string' ? err : '创建失败，请检查表单或网络')}
                     </div>
                 ),
             });

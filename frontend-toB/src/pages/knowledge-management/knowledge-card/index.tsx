@@ -15,6 +15,7 @@ const Index: React.FC = () => {
     const [businessName, setBusinessName] = useState('')
     const [sceneName, setSceneName] = useState('')
     const [fileList, setFileList] = useState([])
+    const [searchKeyword, setSearchKeyword] = useState('');
 
     useEffect(() => {
         // 路由变化时，先清空列表，避免显示旧数据
@@ -54,6 +55,9 @@ const Index: React.FC = () => {
                 }
                 if (newSceneName) {
                     params.scene = newSceneName;
+                }
+                if (searchKeyword) {
+                    params.title = searchKeyword;
                 }
                 
                 const query = new URLSearchParams(params).toString();
@@ -117,7 +121,7 @@ const Index: React.FC = () => {
         };
         
         fetchData();
-    }, [pathname])
+    }, [pathname, searchKeyword])
 
     const goEditPage = (id: number, title: string, type: string) => {
         history.push(`/knowledge-management/edit?knowledge_id=${id.toString()}&title=${title}&type=${type}`)
@@ -207,6 +211,7 @@ const Index: React.FC = () => {
                     <Input.Search
                         className={styles.searchBar}
                         placeholder='输入文档名称'
+                        onSearch={setSearchKeyword}
                     />
                     <Space>
                         <Button type="primary" icon={<IconPlus />} onClick={() => goCreatePage()}>
