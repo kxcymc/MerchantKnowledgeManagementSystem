@@ -271,6 +271,7 @@ export default function KnowledgeEdit() {
 
     const handleValuesChange = () => {
         const currentBusiness = form.getFieldValue('business');
+        const currentScene = form.getFieldValue('scene');
 
         setHasValue(Object.values(form.getFieldsValue()).some(val =>
             val !== undefined && val !== '' && val !== null
@@ -281,7 +282,9 @@ export default function KnowledgeEdit() {
         } else {
             setIsShowSceneSelectCol(false);
             // 非“招商入驻”业务时清空场景，避免携带旧值
-            form.setFieldValue('scene', '');
+            if (currentScene) { 
+                form.setFieldValue('scene', '');
+            }
         }
     }
 
