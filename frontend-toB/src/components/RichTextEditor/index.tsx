@@ -552,19 +552,19 @@ interface RichTextEditorProps {
 }
 
 const RichTextEditor: FC<RichTextEditorProps> = ({ value, onChange }) => {
-    console.log('RichTextEditor 渲染，收到 value:', value);
+    // 使用 ref 存储上一次的 value，避免循环比较
+    const prevValueRef = useRef<string>('');
+    const isInternalChangeRef = useRef(false);
     
-    // 简化的状态管理：直接使用 value prop 初始化
+    // 初始化 pages
     const [pages, setPages] = useState<Descendant[][]>(() => {
-        console.log('RichTextEditor 初始化 pages');
         if (value && Array.isArray(value) && value.length > 0) {
             const isValid = value.every(page => Array.isArray(page) && page.length > 0);
             if (isValid) {
-                console.log('RichTextEditor 初始化使用传入的 value:', value);
+                prevValueRef.current = JSON.stringify(value);
                 return value;
             }
         }
-        console.log('RichTextEditor 初始化使用默认值');
         return [initialValue];
     });
     
@@ -574,9 +574,7 @@ const RichTextEditor: FC<RichTextEditorProps> = ({ value, onChange }) => {
     const [pageSettings, setPageSettings] = useState(DEFAULT_PAGE_SETTINGS);
     const [slateKey, setSlateKey] = useState(0);
     
-    // 用于防抖的 ref
     const changeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const mountCountRef = useRef(0);
 
     // 为每一页创建独立的 editor 实例
     const editor = useMemo(() => {
@@ -591,36 +589,42 @@ const RichTextEditor: FC<RichTextEditorProps> = ({ value, onChange }) => {
     const renderElement = useCallback((props: RenderElementProps) => <ElementComponent {...props} />, []);
     const renderLeaf = useCallback((props: RenderLeafProps) => <LeafComponent {...props} />, []);
 
-    // 监听 value 变化并更新 pages
+    // 监听外部 value 变化（仅在非内部修改时更新）
     useEffect(() => {
-        mountCountRef.current++;
-        const mountNumber = mountCountRef.current;
-        console.log(`RichTextEditor useEffect #${mountNumber}, value:`, value, 'current pages:', pages);
-        
+        // 如果是内部修改触发的，跳过
+        if (isInternalChangeRef.current) {
+            isInternalChangeRef.current = false;
+            return;
+        }
+
         if (value && Array.isArray(value) && value.length > 0) {
             const isValid = value.every(page => Array.isArray(page) && page.length > 0);
             if (isValid) {
                 const valueStr = JSON.stringify(value);
-                const pagesStr = JSON.stringify(pages);
                 
-                if (valueStr !== pagesStr) {
-                    console.log(`RichTextEditor useEffect #${mountNumber}: value 与 pages 不同，更新 pages`);
+                // 只有当 value 真正改变时才更新
+                if (valueStr !== prevValueRef.current) {
+                    prevValueRef.current = valueStr;
                     setPages(value);
                     setCurrentPageIndex(0);
                     setSlateKey(prev => prev + 1);
-                } else {
-                    console.log(`RichTextEditor useEffect #${mountNumber}: value 与 pages 相同，不更新`);
                 }
             }
         }
     }, [value]);
 
     // 处理当前页面的内容变更
-    const handleChange = (newValue: Descendant[]) => {
+    const handleChange = useCallback((newValue: Descendant[]) => {
         const newPages = [...pages];
         newPages[currentPageIndex] = newValue;
         setPages(newPages);
         setCharCount(calculateTextLength(newValue));
+
+        // 标记为内部修改
+        isInternalChangeRef.current = true;
+        
+        // 更新 ref 的值
+        prevValueRef.current = JSON.stringify(newPages);
 
         // 使用防抖避免频繁触发 onChange
         if (changeTimeoutRef.current) {
@@ -631,14 +635,14 @@ const RichTextEditor: FC<RichTextEditorProps> = ({ value, onChange }) => {
             if (onChange && typeof onChange === 'function') {
                 onChange(newPages);
             }
-        }, 100); // 100ms 防抖
-    };
+        }, 300); // 增加防抖时间到 300ms
+    }, [pages, currentPageIndex, onChange]);
 
     // 切换上一页
     const handlePrevPage = () => {
         if (currentPageIndex > 0) {
             setCurrentPageIndex(prev => prev - 1);
-            setSlateKey(prev => prev + 1); // 强制重新挂载
+            setSlateKey(prev => prev + 1);
         }
     };
 
@@ -646,16 +650,24 @@ const RichTextEditor: FC<RichTextEditorProps> = ({ value, onChange }) => {
     const handleNextPage = () => {
         if (currentPageIndex < pages.length - 1) {
             setCurrentPageIndex(prev => prev + 1);
-            setSlateKey(prev => prev + 1); // 强制重新挂载
+            setSlateKey(prev => prev + 1);
         }
     };
 
     // 新增页面
     const handleAddPage = () => {
-        setPages(prev => [...prev, initialValue]);
+        const newPages = [...pages, initialValue];
+        setPages(newPages);
         setCurrentPageIndex(pages.length);
-        setSlateKey(prev => prev + 1); // 强制重新挂载
+        setSlateKey(prev => prev + 1);
         Message.success('已新增页面');
+        
+        // 通知父组件
+        if (onChange) {
+            isInternalChangeRef.current = true;
+            prevValueRef.current = JSON.stringify(newPages);
+            onChange(newPages);
+        }
     };
 
     // 删除当前页
@@ -673,11 +685,13 @@ const RichTextEditor: FC<RichTextEditorProps> = ({ value, onChange }) => {
                 if (currentPageIndex >= newPages.length) {
                     setCurrentPageIndex(newPages.length - 1);
                 }
-                setSlateKey(prev => prev + 1); // 强制重新挂载
+                setSlateKey(prev => prev + 1);
                 Message.success('页面已删除');
                 
                 // 通知父组件
                 if (onChange) {
+                    isInternalChangeRef.current = true;
+                    prevValueRef.current = JSON.stringify(newPages);
                     onChange(newPages);
                 }
             }
@@ -719,7 +733,6 @@ const RichTextEditor: FC<RichTextEditorProps> = ({ value, onChange }) => {
 
     return (
         <div style={{ border: '1px solid #eee', borderRadius: 4, display: 'flex', flexDirection: 'column', height: 'inherit', width: 'inherit', overflow: 'hidden' }}>
-            {/* 使用组合 key 强制重新渲染：包含页面索引和 slateKey */}
             <Slate
                 key={`${currentPageIndex}-${slateKey}`}
                 editor={editor}
